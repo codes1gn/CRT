@@ -1,0 +1,17 @@
+[workspace]
+
+members = [
+# runtime abstraction and implementations
+    "chopper-runtime",
+    "utils",
+
+# the abstract hardware layer
+    "hal",
+
+# backend implementations
+    "backend-boilerplate",
+    "backend-vulkan",
+
+# example programs
+    "demos",
+]
