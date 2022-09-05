@@ -1,7 +1,7 @@
 use nom::types::CompleteStr;
 use nom::*;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::base::*;
 use crate::instruction::OpCode;
@@ -9,13 +9,26 @@ use crate::instruction::OpCode;
 // enum type can accept struct-like value.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Token {
-    BytecodeOpCode { code: OpCode },
-    Variable { symbol: u8 },
+    BytecodeOpCode {
+        code: OpCode,
+    },
+    Variable {
+        symbol: u8,
+    },
     // TODO maybe support Variable { symbol: String },
-    I32Literal { value: i32 },
-    F32Literal { value: f32 },
-    Tensor { raw_data: Vec<f32>, shape: Vec<usize> },
-    DType { element_type: ElementType },
+    I32Literal {
+        value: i32,
+    },
+    F32Literal {
+        value: f32,
+    },
+    Tensor {
+        raw_data: Vec<f32>,
+        shape: Vec<usize>,
+    },
+    DType {
+        element_type: ElementType,
+    },
 }
 
 // The abstract struct for asm inst.
@@ -92,7 +105,6 @@ impl AsmInstruction {
                     for _shape in shape_bytes {
                         results.push(_shape)
                     }
-
                 }
                 _ => {
                     panic!("register or literal/operand only");
@@ -149,7 +161,6 @@ impl AsmInstruction {
                     for _shape in shape_bytes {
                         results.push(_shape)
                     }
-
                 }
                 _ => {
                     panic!("register or literal/operand only");
@@ -201,7 +212,6 @@ impl AsmInstruction {
                     for _shape in shape_bytes {
                         results.push(_shape)
                     }
-
                 }
                 _ => {
                     panic!("register or literal/operand only");

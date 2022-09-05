@@ -30,7 +30,7 @@ impl<'a> Session<'a> {
     pub fn init(&mut self) {
         // TODO support more kernels launched at first
         self.device_context
-            .register_kernels("./demo-standalone/kernel_add.comp");
+            .register_kernels("/root/chopper/CRT/demos/demo-standalone/kernel_add.comp");
     }
 
     pub fn benchmark_run(&mut self, opcode: OpCode, lhs: Vec<f32>, rhs: Vec<f32>) -> Vec<f32> {

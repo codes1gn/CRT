@@ -34,16 +34,14 @@ use device_context::*;
 use instruction::*;
 use session::*;
 
-use pyo3::prelude::*;
-use pyo3::wrap_pyfunction;
 use numpy::ndarray::{array, ArrayD, ArrayViewD, ArrayViewMutD};
-use numpy::{ToPyArray, IntoPyArray, PyArrayDyn, PyReadonlyArrayDyn, PyArray2, PyArray1};
-use pyo3::{pymodule, types::PyModule, PyResult, Python};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayDyn, PyReadonlyArrayDyn, ToPyArray};
+use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
+use pyo3::wrap_pyfunction;
+use pyo3::{pymodule, types::PyModule, PyResult, Python};
 
 use transpose::*;
-
-
 
 #[pyclass(name = "CallableModule")]
 pub struct CallableModule {
@@ -65,11 +63,11 @@ fn get_workaround_forward_bytecodes(kernel_option: &str) -> Vec<String> {
         "add" => {
             // add forward
             bc_array.push(format!("%2 = crt.add.f32! %0, %1 : f32\n"));
-        },
+        }
         "matmul" => {
             // matmul forward
             bc_array.push(format!("%2 = crt.matmul.f32! %0, %1 : f32\n"));
-        },
+        }
         _ => {}
     }
 
@@ -90,7 +88,7 @@ fn get_workaround_backward_bytecodes(kernel_option: &str) -> Vec<String> {
             // TODO make a unconsuming functor, 9 should be 0, reusage of register 0
             bc_array.push(format!("%3 = crt.add.f32! %9, %2 : f32\n"));
             bc_array.push(format!("%4 = crt.add.f32! %1, %0 : f32\n"));
-        },
+        }
         "matmul" => {
             // matmul forward
             // TODO make a unconsuming functor
@@ -101,7 +99,7 @@ fn get_workaround_backward_bytecodes(kernel_option: &str) -> Vec<String> {
             // bc_array.push(format!("%4 = crt.matmul.f32! %5, %0 : f32\n"));
             bc_array.push(format!("%3 = crt.matmul.f32! %9, %2 : f32\n"));
             bc_array.push(format!("%4 = crt.matmul.f32! %1, %0 : f32\n"));
-        },
+        }
         _ => {}
     }
 
@@ -119,12 +117,14 @@ impl CallableModule {
     fn __new__(bytecodes: String, kernel_option: String) -> Self {
         let kernel = &kernel_option[..];
         match kernel {
-            "" => {
-                CallableModule { bytecodes: bytecodes, kernel_option: "add".to_string() }
-            }
-            _ => {
-            CallableModule { bytecodes: bytecodes, kernel_option: kernel_option }
-            }
+            "" => CallableModule {
+                bytecodes: bytecodes,
+                kernel_option: "add".to_string(),
+            },
+            _ => CallableModule {
+                bytecodes: bytecodes,
+                kernel_option: kernel_option,
+            },
         }
     }
 
@@ -140,7 +140,6 @@ impl CallableModule {
         arg1: &PyArray2<f32>,
         kwargs: Option<&PyDict>,
     ) -> &'py PyArray1<f32> {
-
         // println!("create interpreter");
         let mut ipt = interpreter::Interpreter::new(&ist);
 
@@ -156,8 +155,10 @@ impl CallableModule {
         let data1 = unsafe { arg1.as_slice().unwrap() };
         // println!("{:?}", data1);
         // TODO tmp HARDCODE for demo use
-        ipt.vm.push_tensor_buffer(lhs_operand, data0.to_vec(), shape0.to_vec());
-        ipt.vm.push_tensor_buffer(rhs_operand, data1.to_vec(), shape1.to_vec());
+        ipt.vm
+            .push_tensor_buffer(lhs_operand, data0.to_vec(), shape0.to_vec());
+        ipt.vm
+            .push_tensor_buffer(rhs_operand, data1.to_vec(), shape1.to_vec());
 
         // let bytecode_array = get_workaround_forward_bytecodes("add");
         let bytecode_array = get_workaround_forward_bytecodes(&self.kernel_option[..]);
@@ -165,7 +166,6 @@ impl CallableModule {
             // println!("Executing {}", _bytecode_string.as_str());
             let status = ipt.run_bytecode(_bytecode_string);
         }
-
 
         let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
         outs_dataview.raw_data.to_pyarray(py)
@@ -222,10 +222,14 @@ impl CallableModule {
         //assert_eq!(0, 1);
 
         // TODO tmp HARDCODE for demo use
-        ipt.vm.push_tensor_buffer(grad, data0.to_vec(), shape0.to_vec());
-        ipt.vm.push_tensor_buffer(gradworkaroundduplicate, data0.to_vec(), shape0.to_vec());
-        ipt.vm.push_tensor_buffer(act0, data1_transposed, shape1_transposed);
-        ipt.vm.push_tensor_buffer(act1, data2_transposed, shape2_transposed);
+        ipt.vm
+            .push_tensor_buffer(grad, data0.to_vec(), shape0.to_vec());
+        ipt.vm
+            .push_tensor_buffer(gradworkaroundduplicate, data0.to_vec(), shape0.to_vec());
+        ipt.vm
+            .push_tensor_buffer(act0, data1_transposed, shape1_transposed);
+        ipt.vm
+            .push_tensor_buffer(act1, data2_transposed, shape2_transposed);
         // TODO use tmp solution to transpose
         //ipt.vm.push_tensor_buffer(act0, data1.to_vec(), shape1.to_vec());
         //ipt.vm.push_tensor_buffer(act1, data2.to_vec(), shape2.to_vec());
@@ -236,17 +240,17 @@ impl CallableModule {
             let status = ipt.run_bytecode(_bytecode_string);
         }
 
-
         let lhs_outs = ipt.vm.data_buffer_f32.remove(&lhs_grad).unwrap();
         let rhs_outs = ipt.vm.data_buffer_f32.remove(&rhs_grad).unwrap();
-        (lhs_outs.raw_data.to_pyarray(py), rhs_outs.raw_data.to_pyarray(py))
+        (
+            lhs_outs.raw_data.to_pyarray(py),
+            rhs_outs.raw_data.to_pyarray(py),
+        )
     }
-
 }
 
 #[pymodule]
 fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
-
     m.add_class::<DeviceInstance>()?;
     m.add_class::<CallableModule>()?;
 
@@ -284,7 +288,14 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
     }
 
     #[pyfn(m)]
-    fn load_and_invoke(ist: &DeviceInstance, lhs_operand: Vec<f32>, lhs_shape: Vec<usize>, rhs_operand: Vec<f32>, rhs_shape: Vec<usize>, bytecodes: &str) -> Vec<f32> {
+    fn load_and_invoke(
+        ist: &DeviceInstance,
+        lhs_operand: Vec<f32>,
+        lhs_shape: Vec<usize>,
+        rhs_operand: Vec<f32>,
+        rhs_shape: Vec<usize>,
+        bytecodes: &str,
+    ) -> Vec<f32> {
         // TODO, accept string of bytecodes, list<f32> or operands, return list<f32>
         // TODO, maybe wrap it into callables
         //println!("lhs-operand = {:?}", lhs_operand);
@@ -297,8 +308,14 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
 
         // create arguments
         let mut ipt = interpreter::Interpreter::new(&ist);
-        let status = ipt.run_bytecode(format!("%{} = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n", lhs_register));
-        let status = ipt.run_bytecode(format!("%{} = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n", rhs_register));
+        let status = ipt.run_bytecode(format!(
+            "%{} = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
+            lhs_register
+        ));
+        let status = ipt.run_bytecode(format!(
+            "%{} = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
+            rhs_register
+        ));
         let status = ipt.run_bytecode(format!("%{} = crt.add.f32! %0, %1 : f32\n", outs_register));
         let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
         outs_dataview.raw_data
@@ -308,58 +325,58 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
 }
 
 /*
- * add forward callable: legacy code
-    // TODO hardcoded with explictiy PyArray2 types, consider PyTuple or other way to accept
-    // variadic
-    // may need serde for se and des
-    #[args(args = "*", kwargs = "**")]
-    fn forward<'py>(
-        &mut self,
-        py: Python<'py>,
-        ist: &DeviceInstance,
-        arg0: &PyArray2<f32>,
-        arg1: &PyArray2<f32>,
-        kwargs: Option<&PyDict>,
-    ) -> &'py PyArray1<f32> {
+* add forward callable: legacy code
+   // TODO hardcoded with explictiy PyArray2 types, consider PyTuple or other way to accept
+   // variadic
+   // may need serde for se and des
+   #[args(args = "*", kwargs = "**")]
+   fn forward<'py>(
+       &mut self,
+       py: Python<'py>,
+       ist: &DeviceInstance,
+       arg0: &PyArray2<f32>,
+       arg1: &PyArray2<f32>,
+       kwargs: Option<&PyDict>,
+   ) -> &'py PyArray1<f32> {
 
-        println!("Initializing Vulkan Device");
-        let mut ipt = interpreter::Interpreter::new(&ist);
-        println!("Initialized Vulkan Device");
+       println!("Initializing Vulkan Device");
+       let mut ipt = interpreter::Interpreter::new(&ist);
+       println!("Initialized Vulkan Device");
 
-        let lhs_operand = 0;
-        let rhs_operand = 1;
-        let outs_register = 2;
+       let lhs_operand = 0;
+       let rhs_operand = 1;
+       let outs_register = 2;
 
-        // parsing args and get func arguments and its shapes
-        // TODO change vec to array abstraction on databuffer
-        let shape0 = arg0.shape();
-        let data0 = unsafe { arg0.as_slice().unwrap() };
-        let shape1 = arg1.shape();
-        let data1 = unsafe { arg1.as_slice().unwrap() };
-        println!("{:?}", data1);
-        // TODO tmp HARDCODE for demo use
-        ipt.vm.push_tensor_buffer(lhs_operand, data0.to_vec(), shape0.to_vec());
-        ipt.vm.push_tensor_buffer(rhs_operand, data1.to_vec(), shape1.to_vec());
+       // parsing args and get func arguments and its shapes
+       // TODO change vec to array abstraction on databuffer
+       let shape0 = arg0.shape();
+       let data0 = unsafe { arg0.as_slice().unwrap() };
+       let shape1 = arg1.shape();
+       let data1 = unsafe { arg1.as_slice().unwrap() };
+       println!("{:?}", data1);
+       // TODO tmp HARDCODE for demo use
+       ipt.vm.push_tensor_buffer(lhs_operand, data0.to_vec(), shape0.to_vec());
+       ipt.vm.push_tensor_buffer(rhs_operand, data1.to_vec(), shape1.to_vec());
 
-        let bytecode_array = get_workaround_forward_bytecodes(arg0, arg1);
-        for _bytecode_string in bytecode_array {
-            println!("Executing {}", _bytecode_string.as_str());
-            let status = ipt.run_bytecode(_bytecode_string);
-        }
+       let bytecode_array = get_workaround_forward_bytecodes(arg0, arg1);
+       for _bytecode_string in bytecode_array {
+           println!("Executing {}", _bytecode_string.as_str());
+           let status = ipt.run_bytecode(_bytecode_string);
+       }
 
 
-        let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
-        outs_dataview.raw_data.to_pyarray(py)
-        //let _data = vec![
-        //    outs_dataview.raw_data[0..3],
-        //    outs_dataview.raw_data[3..6],
-        //    outs_dataview.raw_data[6..9],
-        //];
-        //_data.to_pyarray(py)
-        //
-        // let gil = pyo3::Python::acquire_gil();
-        //let outs: &PyArray2<f32> = PyArray2::<f32>::from_vec2(gil.python(), &outs_dataview.raw_data).unwrap();
-        // let outs: &PyArray<f32> = PyArray::<f32>::from_vec(gil.python(), &outs_dataview.raw_data).unwrap();
-        // outs
-    }
- * */
+       let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
+       outs_dataview.raw_data.to_pyarray(py)
+       //let _data = vec![
+       //    outs_dataview.raw_data[0..3],
+       //    outs_dataview.raw_data[3..6],
+       //    outs_dataview.raw_data[6..9],
+       //];
+       //_data.to_pyarray(py)
+       //
+       // let gil = pyo3::Python::acquire_gil();
+       //let outs: &PyArray2<f32> = PyArray2::<f32>::from_vec2(gil.python(), &outs_dataview.raw_data).unwrap();
+       // let outs: &PyArray<f32> = PyArray::<f32>::from_vec(gil.python(), &outs_dataview.raw_data).unwrap();
+       // outs
+   }
+* */

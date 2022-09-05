@@ -2,7 +2,7 @@ extern crate backend_vulkan as concrete_backend;
 
 use std::collections::HashMap;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::base::errors::EmptyCmdBufferError;
 use crate::base::errors::RuntimeStatusError;
@@ -56,7 +56,10 @@ impl<'a> VM<'a> {
 
     // TODO pack below functions into decode a tensor
     fn decode_two_bytes_as_vec_size(&mut self) -> u16 {
-        let encoded = vec![self.command_buffer[self.program_counter], self.command_buffer[self.program_counter+1]];
+        let encoded = vec![
+            self.command_buffer[self.program_counter],
+            self.command_buffer[self.program_counter + 1],
+        ];
         // println!("decoding data len {:?}", encoded);
         self.program_counter += 2;
         let decoded: u16 = bincode::deserialize(&encoded).unwrap();
@@ -496,7 +499,6 @@ mod tests {
     fn test_vm_push_data_f32() {
         assert_eq!(0, 0);
     }
-
 
     #[test]
     fn test_vm_push_data_i32() {

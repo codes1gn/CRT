@@ -57,7 +57,6 @@ impl DeviceContext {
     pub fn register_kernels(&mut self, file_path: &str, query_entry: String) {
         // glsl_to_spirv, TODO, support more, spv format and readable spirv ir.
         // TODO, read external config of all kernels, and cache it by OpCode
-        // println!("{:?}", file_path);
         let glsl = fs::read_to_string(file_path).unwrap();
         // println!("{:?}", glsl);
         let spirv_file = glsl_to_spirv::compile(&glsl, glsl_to_spirv::ShaderType::Compute).unwrap();

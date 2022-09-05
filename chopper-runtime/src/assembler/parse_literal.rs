@@ -218,9 +218,16 @@ mod tests {
     #[test]
     fn test_parse_tensor_literal() {
         // w.o. \n
-        let result = parse_tensor_literal(CompleteStr("dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>"));
+        let result =
+            parse_tensor_literal(CompleteStr("dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>"));
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
-        assert_eq!(_bytes_result, Token::Tensor { raw_data: vec![1.1, 2.2, 3.3, 4.4, 5.5, 6.6], shape: vec![2, 3] });
+        assert_eq!(
+            _bytes_result,
+            Token::Tensor {
+                raw_data: vec![1.1, 2.2, 3.3, 4.4, 5.5, 6.6],
+                shape: vec![2, 3]
+            }
+        );
     }
 }
