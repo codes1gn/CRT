@@ -11,9 +11,14 @@ edition = "2021"
 name = "demo-standalone"
 path = "demo-standalone/main.rs"
 
+[[bin]]
+name = "crt_test"
+path = "crt-raptors/main.rs"
+
 [dependencies]
 log = "0.4"
 hal = { path = "../hal", package = "gfx-hal", version = "0.9.0" }
+chopper-runtime = { path = "../chopper-runtime", package = "chopper-runtime", version = "0.1.0" }
 # hal = { package = "gfx-hal", version = "0.9.0" }
 ash = "0.32"
 auxil = { path = "../utils", package = "crt-utils", version = "0.1" }

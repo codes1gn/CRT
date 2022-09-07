@@ -4,6 +4,7 @@ extern crate nom;
 extern crate backend_vulkan as vk_types;
 extern crate hal;
 
+extern crate raptors;
 extern crate transpose;
 
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr};
@@ -42,6 +43,16 @@ use pyo3::wrap_pyfunction;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
 
 use transpose::*;
+
+pub mod prelude {
+    pub use crate::base::constants::*;
+    pub use crate::buffer_view::*;
+    pub use crate::device_context::*;
+    pub use crate::instance::*;
+    pub use crate::instruction::*;
+    pub use crate::interpreter::Interpreter;
+    pub use crate::session::Session;
+}
 
 #[pyclass(name = "CallableModule")]
 pub struct CallableModule {

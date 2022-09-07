@@ -14,8 +14,9 @@ use crate::functor::*;
 use crate::instance::*;
 use crate::instruction::*;
 
+// make it pub(crate) -> pub
 #[derive(Debug)]
-pub(crate) struct Session<'a> {
+pub struct Session<'a> {
     pub(crate) device_instance_ref: &'a DeviceInstance,
     pub(crate) device_context: DeviceContext,
 }

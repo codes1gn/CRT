@@ -11,7 +11,7 @@ version = "0.1.0"
 publish = false
 edition = "2021"
 authors = ["Albert Shi"]
-crate-type = ["cdylib"]
+crate-type = ["dylib", "rlib"]
 path = "src/lib.rs"
 
 [dependencies]
