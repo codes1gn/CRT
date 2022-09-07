@@ -1,7 +1,5 @@
 extern crate backend_vulkan as concrete_backend;
 
-pub mod new_vm;
-
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -13,10 +11,11 @@ use crate::instruction::OpCode;
 
 use crate::buffer_view::*;
 use crate::instance::*;
+use crate::session::new_session::NewSession;
 use crate::session::*;
 
 #[derive(Debug)]
-pub struct VM<'a> {
+pub struct NewVM {
     registers: [i32; 32],
     command_buffer: Vec<u8>,
     // use usize since this is decided by the arch of computer
@@ -26,18 +25,26 @@ pub struct VM<'a> {
     // TODO to bring device instance into interpreter, may need to impl Default
     // to allow new without explicit value of Session, thus not borrow a moved
     // value -> device instance
-    session: Session<'a>,
+    session: NewSession,
     // data_buffer_f32: Vec<DataView<concrete_backend::Backend, f32>>,
     pub data_buffer_f32: HashMap<usize, DataView<concrete_backend::Backend, f32>>,
     // data_buffer_i32: Vec<DataView<concrete_backend::Backend, i32>>,
     pub data_buffer_i32: HashMap<usize, DataView<concrete_backend::Backend, i32>>,
 }
 
-impl<'a> VM<'a> {
-    pub fn new(dinstance: &'a DeviceInstance) -> VM<'a> {
-        let mut session = Session::new(dinstance);
+impl Drop for NewVM {
+    fn drop(&mut self) {
+        unsafe {
+            println!("drop NewVM");
+        };
+    }
+}
+
+impl NewVM {
+    pub fn new() -> NewVM {
+        let mut session = NewSession::new();
         session.init();
-        VM {
+        NewVM {
             registers: [0; 32],
             program_counter: 0,
             command_buffer: vec![],
@@ -334,11 +341,13 @@ impl<'a> VM<'a> {
     // TODO to be moved into parametric arguments => push_data<T>(data: Vec<T>)
     pub fn push_data_buffer_i32(&mut self, index: usize, data: Vec<i32>) {
         let data_shape = vec![data.len()];
+        // TODO-fix hide devices under device_context level
         let mut data_buffer = DataView::<concrete_backend::Backend, i32>::new(
             &self.session.device_context.device,
             &self
                 .session
-                .device_instance_ref
+                .device_context
+                .device_instance
                 .memory_property()
                 .memory_types,
             data,
@@ -362,7 +371,8 @@ impl<'a> VM<'a> {
             &self.session.device_context.device,
             &self
                 .session
-                .device_instance_ref
+                .device_context
+                .device_instance
                 .memory_property()
                 .memory_types,
             data,
@@ -377,7 +387,8 @@ impl<'a> VM<'a> {
             &self.session.device_context.device,
             &self
                 .session
-                .device_instance_ref
+                .device_context
+                .device_instance
                 .memory_property()
                 .memory_types,
             data,
@@ -416,16 +427,14 @@ mod tests {
 
     #[test]
     fn test_create_vm_struct() {
-        let ist = DeviceInstance::new();
-        let vm = VM::new(&ist);
+        let vm = NewVM::new();
         assert_eq!(vm.registers[0], 0);
     }
 
     // TODO maybe need to test the middle status when halt invoked in run-until-end way.
     #[test]
     fn test_halt_step() {
-        let ist = DeviceInstance::new();
-        let mut vm = VM::new(&ist);
+        let mut vm = NewVM::new();
         vm.command_buffer = vec![0, 0, 0];
         let exit_code = vm.run_once();
         assert_eq!(exit_code.is_ok(), true);
@@ -436,8 +445,7 @@ mod tests {
 
     #[test]
     fn test_vm_dummy() {
-        let ist = DeviceInstance::new();
-        let mut vm = VM::new(&ist);
+        let mut vm = NewVM::new();
         vm.command_buffer = vec![];
         let exit_code = vm.run();
         assert_eq!(exit_code.is_ok(), true);
@@ -446,8 +454,7 @@ mod tests {
 
     #[test]
     fn test_vm_illegal() {
-        let ist = DeviceInstance::new();
-        let mut vm = VM::new(&ist);
+        let mut vm = NewVM::new();
         vm.command_buffer = vec![255];
         let exit_code = vm.run();
         assert_eq!(exit_code.is_ok(), false);
@@ -456,8 +463,7 @@ mod tests {
 
     #[test]
     fn test_vm_fetch_instruction() {
-        let ist = DeviceInstance::new();
-        let mut vm = VM::new(&ist);
+        let mut vm = NewVM::new();
         vm.command_buffer = vec![0];
         let opcode = vm.fetch_instruction();
         assert_eq!(opcode.unwrap(), OpCode::HALT);
@@ -465,8 +471,7 @@ mod tests {
 
     #[test]
     fn test_vm_next_byte() {
-        let ist = DeviceInstance::new();
-        let mut vm = VM::new(&ist);
+        let mut vm = NewVM::new();
         vm.command_buffer = vec![8];
         let data = vm.get_next_byte();
         assert_eq!(data, 8);
@@ -474,36 +479,9 @@ mod tests {
 
     #[test]
     fn test_vm_next_two_bytes() {
-        let ist = DeviceInstance::new();
-        let mut vm = VM::new(&ist);
+        let mut vm = NewVM::new();
         vm.command_buffer = vec![2, 7];
         let data = vm.get_next_two_bytes();
         assert_eq!(data, 519);
-    }
-
-    #[test]
-    fn test_load_op() {
-        // TODO replace with new mock code, not old loadstore ADD system
-        assert_eq!(0, 0);
-    }
-
-    #[test]
-    fn test_mul_op() {
-        assert_eq!(0, 0);
-    }
-
-    #[test]
-    fn test_floordiv_op() {
-        assert_eq!(0, 0);
-    }
-
-    #[test]
-    fn test_vm_push_data_f32() {
-        assert_eq!(0, 0);
-    }
-
-    #[test]
-    fn test_vm_push_data_i32() {
-        assert_eq!(0, 0);
     }
 }

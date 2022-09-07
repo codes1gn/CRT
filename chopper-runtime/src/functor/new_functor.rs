@@ -1,8 +1,6 @@
 extern crate backend_vulkan as concrete_backend;
 extern crate hal;
 
-pub mod new_functor;
-
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -13,34 +11,43 @@ use crate::base::constants::*;
 use crate::base::kernel::*;
 use crate::base::*;
 use crate::buffer_view::*;
+use crate::device_context::new_device_context::NewDeviceContext;
 use crate::device_context::*;
 use crate::instance::*;
 use crate::instruction::*;
 
-// TODO make OpCode and Functor as Trait to ensure pluggability.
-pub(crate) struct Functor {
+// TODO make OpCode and NewFunctor as Trait to ensure pluggability.
+pub(crate) struct NewFunctor {
     opcode: Option<OpCode>,
     pub kernel: Option<Kernel>,
 }
 
-impl Default for Functor {
-    fn default() -> Functor {
-        Functor {
+impl Drop for NewFunctor {
+    fn drop(&mut self) {
+        unsafe {
+            println!("drop::NewFunctor");
+        };
+    }
+}
+
+impl Default for NewFunctor {
+    fn default() -> NewFunctor {
+        NewFunctor {
             opcode: Default::default(),
             kernel: Default::default(),
         }
     }
 }
 
-impl Functor {
-    pub fn new() -> Functor {
+impl NewFunctor {
+    pub fn new() -> NewFunctor {
         return Self {
             opcode: Default::default(),
             kernel: Default::default(),
         };
     }
 
-    // partially bind function to the Functor, that will be applied to Self
+    // partially bind function to the NewFunctor, that will be applied to Self
     pub fn bind(&mut self, kernel: Kernel) -> () {
         self.kernel = Some(kernel);
     }
@@ -70,12 +77,12 @@ impl Functor {
 
     pub fn apply<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        device_context: &mut DeviceContext,
-        device_instance_ref: &DeviceInstance,
+        device_context: &mut NewDeviceContext,
         lhs_buffer_functor: DataView<concrete_backend::Backend, T>,
         rhs_buffer_functor: DataView<concrete_backend::Backend, T>,
         opcode: OpCode,
     ) -> DataView<concrete_backend::Backend, T> {
+        let device_instance_ref = &device_context.device_instance;
         /*
         let init_literal: Vec<T> = match T {
             f32 => vec![T.default(); lhs_buffer_functor.data_size],

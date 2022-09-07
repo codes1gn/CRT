@@ -50,7 +50,9 @@ pub mod prelude {
     pub use crate::device_context::*;
     pub use crate::instance::*;
     pub use crate::instruction::*;
+    pub use crate::interpreter::new_interpreter::NewInterpreter;
     pub use crate::interpreter::Interpreter;
+    pub use crate::session::new_session::NewSession;
     pub use crate::session::Session;
 }
 

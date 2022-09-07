@@ -99,15 +99,13 @@ impl DeviceInstance {
     }
 }
 
-/*
 impl Drop for DeviceInstance {
     fn drop(&mut self) {
         unsafe {
-            println!("release device context resources");
+            println!("drop::DeviceInstance");
         };
     }
 }
-*/
 
 #[cfg(test)]
 

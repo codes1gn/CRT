@@ -199,6 +199,7 @@ dependencies = [
  "chopper-runtime",
  "crt-utils",
  "env_logger 0.8.4",
+ "float_eq",
  "gfx-hal",
  "glsl-to-spirv",
  "log",

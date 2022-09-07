@@ -1,8 +1,6 @@
 extern crate backend_vulkan as concrete_backend;
 extern crate hal;
 
-pub mod new_device_context;
-
 use std::{borrow::Cow, collections::HashMap, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -13,11 +11,12 @@ use crate::buffer_view::*;
 use crate::instance::*;
 use crate::instruction::*;
 use crate::kernel::kernel_registry::*;
+use crate::kernel::new_kernel_registry::NewKernelRegistry;
 
 #[derive(Debug)]
-pub(crate) struct DeviceContext {
+pub(crate) struct NewDeviceContext {
     // TODO refactor into kernel_registry
-    kernel_registry: KernelRegistry,
+    kernel_registry: NewKernelRegistry,
     //adapter: Adapter<concrete_backend::Backend>,
     //physical_device: concrete_backend::PhysicalDevice,
     //pub device_and_queue: hal::adapter::Gpu<concrete_backend::Backend>,
@@ -26,10 +25,24 @@ pub(crate) struct DeviceContext {
     // TODO .first_mut().unwrap(); before use, owner is Functor
     //
     pub descriptor_pool: concrete_backend::native::DescriptorPool,
+
+    // FIX: device instance have to put at last since the drop rule of Rust is a sequence order
+    // rather than a reverse order in struct. Thus, we have to make sure device instance is dropped
+    // at last
+    pub device_instance: DeviceInstance,
 }
 
-impl DeviceContext {
-    pub fn new(di: &DeviceInstance) -> DeviceContext {
+impl Drop for NewDeviceContext {
+    fn drop(&mut self) {
+        unsafe {
+            println!("drop::NewDeviceContext");
+        };
+    }
+}
+
+impl NewDeviceContext {
+    pub fn new() -> NewDeviceContext {
+        let mut di = DeviceInstance::new();
         let mut device_and_queue = di.device_and_queue();
         let mut descriptor_pool = unsafe {
             device_and_queue.device.create_descriptor_pool(
@@ -48,7 +61,8 @@ impl DeviceContext {
         }
         .expect("Can't create descriptor pool");
         return Self {
-            kernel_registry: KernelRegistry::new(),
+            device_instance: di,
+            kernel_registry: NewKernelRegistry::new(),
             //device_and_queue: device_and_queue,
             device: device_and_queue.device,
             queue_groups: device_and_queue.queue_groups,
@@ -69,7 +83,7 @@ impl DeviceContext {
         self.kernel_registry.register(spirv, query_entry);
     }
 
-    pub fn kernel_registry(&self) -> &KernelRegistry {
+    pub fn kernel_registry(&self) -> &NewKernelRegistry {
         &self.kernel_registry
     }
 
@@ -87,8 +101,7 @@ mod tests {
     #[test]
     fn create_add_functor() {
         // defaultly to Add, TODO, add more dispatch path
-        let mut ist = DeviceInstance::new();
-        let add_functor = DeviceContext::new(&ist);
+        let add_functor = NewDeviceContext::new();
         assert_eq!(0, 0);
     }
 }

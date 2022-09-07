@@ -1,8 +1,6 @@
 extern crate backend_vulkan as concrete_backend;
 extern crate hal;
 
-pub mod new_session;
-
 use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -11,23 +9,31 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 use crate::base::kernel::*;
 use crate::base::*;
 use crate::buffer_view::*;
+use crate::device_context::new_device_context::NewDeviceContext;
 use crate::device_context::*;
+use crate::functor::new_functor::NewFunctor;
 use crate::functor::*;
 use crate::instance::*;
 use crate::instruction::*;
 
 // make it pub(crate) -> pub
 #[derive(Debug)]
-pub struct Session<'a> {
-    pub(crate) device_instance_ref: &'a DeviceInstance,
-    pub(crate) device_context: DeviceContext,
+pub struct NewSession {
+    pub(crate) device_context: NewDeviceContext,
 }
 
-impl<'a> Session<'a> {
-    pub fn new(dist: &'a DeviceInstance) -> Session {
-        let mut device_context = DeviceContext::new(dist);
+impl Drop for NewSession {
+    fn drop(&mut self) {
+        unsafe {
+            println!("drop NewSession");
+        };
+    }
+}
+
+impl NewSession {
+    pub fn new() -> NewSession {
+        let mut device_context = NewDeviceContext::new();
         return Self {
-            device_instance_ref: dist,
             device_context: device_context,
         };
     }
@@ -76,7 +82,7 @@ impl<'a> Session<'a> {
 
         // step 4 load compiled spirv
 
-        let mut functor = Functor::new();
+        let mut functor = NewFunctor::new();
         // TODO move shader in cache
         // TODO add dispatch opcode and dispatch it dynamically later
         // let shader = self.device_context.dispatch_kernel(OpCode::ADDF32);
@@ -84,13 +90,8 @@ impl<'a> Session<'a> {
         functor.bind(shader);
 
         // TODO support partial apply for one operator
-        let mut result_buffer = functor.apply::<T>(
-            &mut self.device_context,
-            &self.device_instance_ref,
-            lhs_dataview,
-            rhs_dataview,
-            opcode,
-        );
+        let mut result_buffer =
+            functor.apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
 
         // clear shader module
         // self.device_context.device.destroy_shader_module(shader);
@@ -110,15 +111,13 @@ mod tests {
     #[test]
     fn test_create_session() {
         // defaultly to Add, TODO, add more dispatch path
-        let mut dist = DeviceInstance::new();
-        let session = DeviceContext::new(&dist);
+        let session = NewSession::new();
         assert_eq!(0, 0);
     }
 
     #[test]
     fn test_e2e_add() {
-        let ist = DeviceInstance::new();
-        let mut se = Session::new(&ist);
+        let mut se = NewSession::new();
         se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
@@ -127,14 +126,20 @@ mod tests {
         // create lhs dataview
         let mut lhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
-            &se.device_instance_ref.memory_property().memory_types,
+            &se.device_context
+                .device_instance
+                .memory_property()
+                .memory_types,
             lhs,
             ElementType::F32,
             lhs_shape,
         );
         let mut rhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
-            &se.device_instance_ref.memory_property().memory_types,
+            &se.device_context
+                .device_instance
+                .memory_property()
+                .memory_types,
             rhs,
             ElementType::F32,
             rhs_shape,
@@ -146,8 +151,7 @@ mod tests {
 
     #[test]
     fn test_e2e_sub() {
-        let ist = DeviceInstance::new();
-        let mut se = Session::new(&ist);
+        let mut se = NewSession::new();
         se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
@@ -156,14 +160,20 @@ mod tests {
         // create lhs dataview
         let mut lhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
-            &se.device_instance_ref.memory_property().memory_types,
+            &se.device_context
+                .device_instance
+                .memory_property()
+                .memory_types,
             lhs,
             ElementType::F32,
             lhs_shape,
         );
         let mut rhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
-            &se.device_instance_ref.memory_property().memory_types,
+            &se.device_context
+                .device_instance
+                .memory_property()
+                .memory_types,
             rhs,
             ElementType::F32,
             rhs_shape,
@@ -175,8 +185,7 @@ mod tests {
 
     #[test]
     fn test_e2e_matmul() {
-        let ist = DeviceInstance::new();
-        let mut se = Session::new(&ist);
+        let mut se = NewSession::new();
         se.init();
         let lhs = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let rhs = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
@@ -185,14 +194,20 @@ mod tests {
         //create lhs dataview
         let mut lhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
-            &se.device_instance_ref.memory_property().memory_types,
+            &se.device_context
+                .device_instance
+                .memory_property()
+                .memory_types,
             lhs,
             ElementType::F32,
             lhs_shape,
         );
         let mut rhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
-            &se.device_instance_ref.memory_property().memory_types,
+            &se.device_context
+                .device_instance
+                .memory_property()
+                .memory_types,
             rhs,
             ElementType::F32,
             rhs_shape,

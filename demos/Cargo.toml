@@ -26,3 +26,4 @@ backend-vulkan = { path = "../backend-vulkan", package = "backend-vulkan", versi
 env_logger = "0.8"
 glsl-to-spirv = "0.1.4"
 nom = "^4.0"
+float_eq = "0.7.0"
