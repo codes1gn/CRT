@@ -5,6 +5,7 @@ use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr, sync
 
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
+use raptors::prelude::*;
 
 use crate::base::kernel::*;
 use crate::base::*;
@@ -14,12 +15,13 @@ use crate::device_context::*;
 use crate::functor::new_functor::NewFunctor;
 use crate::functor::*;
 use crate::instance::*;
-use crate::instruction::*;
+use crate::instruction;
 
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct NewSession {
     pub(crate) device_context: NewDeviceContext,
+    pub actor_system: ActorSystemHandle,
 }
 
 impl Drop for NewSession {
@@ -31,10 +33,14 @@ impl Drop for NewSession {
 }
 
 impl NewSession {
-    pub fn new() -> NewSession {
+    #[tokio::main]
+    pub async fn new() -> NewSession {
         let mut device_context = NewDeviceContext::new();
+        let mut system = build_system!("Raptors");
+
         return Self {
             device_context: device_context,
+            actor_system: system,
         };
     }
 
@@ -62,7 +68,7 @@ impl NewSession {
 
     pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        opcode: OpCode,
+        opcode: instruction::OpCode,
         lhs_dataview: DataView<concrete_backend::Backend, T>,
         rhs_dataview: DataView<concrete_backend::Backend, T>,
     ) -> DataView<concrete_backend::Backend, T> {
@@ -74,7 +80,7 @@ impl NewSession {
 
     pub fn run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        opcode: OpCode,
+        opcode: instruction::OpCode,
         lhs_dataview: DataView<concrete_backend::Backend, T>,
         rhs_dataview: DataView<concrete_backend::Backend, T>,
     ) -> DataView<concrete_backend::Backend, T> {
@@ -85,7 +91,7 @@ impl NewSession {
         let mut functor = NewFunctor::new();
         // TODO move shader in cache
         // TODO add dispatch opcode and dispatch it dynamically later
-        // let shader = self.device_context.dispatch_kernel(OpCode::ADDF32);
+        // let shader = self.device_context.dispatch_kernel(instruction::OpCode::ADDF32);
         let shader = self.device_context.dispatch_kernel(opcode);
         functor.bind(shader);
 
@@ -144,7 +150,7 @@ mod tests {
             ElementType::F32,
             rhs_shape,
         );
-        let opcode = OpCode::ADDF32;
+        let opcode = instruction::OpCode::ADDF32;
         let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
         assert_eq!(result_buffer.raw_data, vec!(12.0, 15.0, 20.0));
     }
@@ -178,7 +184,7 @@ mod tests {
             ElementType::F32,
             rhs_shape,
         );
-        let opcode = OpCode::SUBF32;
+        let opcode = instruction::OpCode::SUBF32;
         let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
         assert_eq!(result_buffer.raw_data, vec!(-10.0, -11.0, -14.0));
     }
@@ -213,7 +219,7 @@ mod tests {
             rhs_shape,
         );
 
-        let opcode = OpCode::MATMULF32;
+        let opcode = instruction::OpCode::MATMULF32;
         let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
     }
 }

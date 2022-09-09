@@ -225,6 +225,7 @@ dependencies = [
  "pyo3",
  "raptors",
  "serde",
+ "tokio",
  "transpose",
 ]
 
