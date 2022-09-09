@@ -69,11 +69,15 @@ impl NewSession {
     pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         opcode: instruction::OpCode,
-        lhs_dataview: NewDataView<concrete_backend::Backend, T>,
-        rhs_dataview: NewDataView<concrete_backend::Backend, T>,
-    ) -> NewDataView<concrete_backend::Backend, T> {
+        lhs_tensor: TensorView<T>,
+        rhs_tensor: TensorView<T>,
+        // TODO-trial lowering UniBuffer range, to make session dev independent
+        // lhs_dataview: UniBuffer<concrete_backend::Backend, T>,
+        // rhs_dataview: UniBuffer<concrete_backend::Backend, T>,
+        // ) -> UniBuffer<concrete_backend::Backend, T> {
+    ) -> TensorView<T> {
         self.device_context.device.start_capture();
-        let outs = self.run::<T>(opcode, lhs_dataview, rhs_dataview);
+        let outs = self.run::<T>(opcode, lhs_tensor, rhs_tensor);
         self.device_context.device.stop_capture();
         outs
     }
@@ -81,16 +85,14 @@ impl NewSession {
     pub fn run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         opcode: instruction::OpCode,
-        lhs_dataview: NewDataView<concrete_backend::Backend, T>,
-        rhs_dataview: NewDataView<concrete_backend::Backend, T>,
-    ) -> NewDataView<concrete_backend::Backend, T> {
+        lhs_tensor: TensorView<T>,
+        rhs_tensor: TensorView<T>,
+    ) -> TensorView<T> {
         // step 2 open a physical compute device
 
         // step 4 load compiled spirv
         //
-        let mut result_buffer = self
-            .device_context
-            .compute(lhs_dataview, rhs_dataview, opcode);
+        let mut out_tensor = self.device_context.compute(lhs_tensor, rhs_tensor, opcode);
 
         // let mut result_buffer =
         //    NewFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
@@ -101,7 +103,7 @@ impl NewSession {
         // update dataview with new value
         // result_buffer.eval(&self.device_context.device);
         // print outs
-        result_buffer
+        out_tensor
     }
 }
 
@@ -126,29 +128,29 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let mut lhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
-            &se.device_context.device,
-            &se.device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            lhs,
-            ElementType::F32,
-            lhs_shape,
-        );
-        let mut rhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
-            &se.device_context.device,
-            &se.device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            rhs,
-            ElementType::F32,
-            rhs_shape,
-        );
+        let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
+        let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
+        // TODO-trial lowering UniBuffer range, to make session dev independent
+        // let mut lhs_dataview = UniBuffer::<concrete_backend::Backend, f32>::new(
+        //     &se.device_context.device,
+        //     &se.device_context
+        //         .device_instance
+        //         .memory_property()
+        //         .memory_types,
+        //     lhs_tensor_view,
+        // );
+        // let mut rhs_dataview = UniBuffer::<concrete_backend::Backend, f32>::new(
+        //     &se.device_context.device,
+        //     &se.device_context
+        //         .device_instance
+        //         .memory_property()
+        //         .memory_types,
+        //     rhs_tensor_view,
+        // );
         let opcode = instruction::OpCode::ADDF32;
-        let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
-        assert_eq!(result_buffer.raw_data, vec!(12.0, 15.0, 20.0));
+        let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
+        // let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
+        assert_eq!(result_buffer.data, vec!(12.0, 15.0, 20.0));
     }
 
     #[test]
@@ -160,29 +162,11 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let mut lhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
-            &se.device_context.device,
-            &se.device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            lhs,
-            ElementType::F32,
-            lhs_shape,
-        );
-        let mut rhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
-            &se.device_context.device,
-            &se.device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            rhs,
-            ElementType::F32,
-            rhs_shape,
-        );
+        let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
+        let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
         let opcode = instruction::OpCode::SUBF32;
-        let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
-        assert_eq!(result_buffer.raw_data, vec!(-10.0, -11.0, -14.0));
+        let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
+        assert_eq!(result_buffer.data, vec!(-10.0, -11.0, -14.0));
     }
 
     #[test]
@@ -194,28 +178,9 @@ mod tests {
         let lhs_shape = vec![2, 3];
         let rhs_shape = vec![3, 2];
         //create lhs dataview
-        let mut lhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
-            &se.device_context.device,
-            &se.device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            lhs,
-            ElementType::F32,
-            lhs_shape,
-        );
-        let mut rhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
-            &se.device_context.device,
-            &se.device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            rhs,
-            ElementType::F32,
-            rhs_shape,
-        );
-
+        let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
+        let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
         let opcode = instruction::OpCode::MATMULF32;
-        let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
+        let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
     }
 }

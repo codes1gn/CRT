@@ -32,15 +32,32 @@ pub struct DataView<B: hal::Backend, T> {
 }
 
 #[derive(Debug)]
-pub struct NewDataView<B: hal::Backend, T> {
-    pub host_buffer: Option<BufferView<B>>,
-    pub device_buffer: Option<BufferView<B>>,
+pub struct TensorView<T> {
+    pub data: Vec<T>,
+    pub dtype: ElementType,
+    pub shape: Vec<usize>,
+}
+
+impl<T> TensorView<T> {
+    pub fn new(data: Vec<T>, dtype: ElementType, shape: Vec<usize>) -> Self {
+        Self {
+            data: data,
+            dtype: dtype,
+            shape: shape,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UniBuffer<B: hal::Backend, T> {
+    pub host_buffer: Option<NewBufferView<B>>,
+    pub device_buffer: Option<NewBufferView<B>>,
     pub raw_data: Vec<T>,
     pub data_size: usize,
     pub shape: Vec<usize>,
 }
 
-impl<B: hal::Backend, T> NewDataView<B, T> {
+impl<B: hal::Backend, T> UniBuffer<B, T> {
     pub fn try_drop(&mut self, device: &B::Device) {
         unsafe {
             if let Some(hostbuffer) = self.host_buffer.take() {
@@ -55,27 +72,31 @@ impl<B: hal::Backend, T> NewDataView<B, T> {
     }
 }
 
-impl<B: hal::Backend, T> NewDataView<B, T> {
+//impl<B: hal::Backend, T> UniBuffer<B, T> {
+impl<B: hal::Backend, T> UniBuffer<B, T> {
     pub fn new(
         device: &B::Device,
         memory_types: &[MemoryType],
-        data: Vec<T>,
-        dtype: ElementType,
-        shape: Vec<usize>,
-    ) -> NewDataView<B, T> {
+        tensor_view: TensorView<T>,
+    ) -> UniBuffer<B, T> {
         // TODO tobe handled by constant parameter
-        let dsize = data.len();
+        let dsize = tensor_view.data.len();
         // TODO remove this assertion and make new constructor more adaptive
         // assert_eq!(dsize, data_size);
 
-        let mut host_buffer =
-            BufferView::<B>::new(device, memory_types, BufferType::HOST, dsize as u64, dtype);
-        let mut device_buffer = BufferView::<B>::new(
+        let mut host_buffer = NewBufferView::<B>::new(
+            device,
+            memory_types,
+            BufferType::HOST,
+            dsize as u64,
+            tensor_view.dtype,
+        );
+        let mut device_buffer = NewBufferView::<B>::new(
             device,
             memory_types,
             BufferType::DEVICE,
             dsize as u64,
-            dtype,
+            tensor_view.dtype,
         );
         unsafe {
             // mapping => the handle at host side of device memory
@@ -83,7 +104,7 @@ impl<B: hal::Backend, T> NewDataView<B, T> {
                 .map_memory(&mut host_buffer.memory, memory::Segment::ALL)
                 .unwrap();
             ptr::copy_nonoverlapping(
-                data.as_ptr() as *const u8,
+                tensor_view.data.as_ptr() as *const u8,
                 mapping,
                 dsize * F32STRIDE as usize,
             );
@@ -92,9 +113,9 @@ impl<B: hal::Backend, T> NewDataView<B, T> {
         return Self {
             host_buffer: Some(host_buffer),
             device_buffer: Some(device_buffer),
-            raw_data: data,
+            raw_data: tensor_view.data,
             data_size: dsize,
-            shape: shape,
+            shape: tensor_view.shape,
         };
     }
 
@@ -185,7 +206,77 @@ pub struct BufferView<B: hal::Backend> {
     // TODO add shape
 }
 
-impl<'a, B: hal::Backend> BufferView<B> {
+#[derive(Debug)]
+pub struct NewBufferView<B: hal::Backend> {
+    pub buffer_type: BufferType,
+    pub buffer: B::Buffer,
+    pub memory: B::Memory,
+    pub buffer_size: u64,
+    // TODO add shape
+}
+impl<B: hal::Backend> NewBufferView<B> {
+    pub fn new(
+        device: &B::Device,
+        memory_types: &[MemoryType],
+        buffer_type: BufferType,
+        data_size: u64,
+        dtype: ElementType,
+    ) -> Self {
+        let stride = match dtype {
+            ElementType::F32 => std::mem::size_of::<f32>() as buffer::Stride,
+            ElementType::I32 => std::mem::size_of::<f64>() as buffer::Stride,
+            _ => std::mem::size_of::<u8>() as buffer::Stride,
+        };
+        let properties = match buffer_type {
+            BufferType::HOST => memory::Properties::CPU_VISIBLE | memory::Properties::COHERENT,
+            BufferType::DEVICE => memory::Properties::DEVICE_LOCAL,
+        };
+        let usage = match buffer_type {
+            BufferType::HOST => buffer::Usage::TRANSFER_SRC | buffer::Usage::TRANSFER_DST,
+            BufferType::DEVICE => {
+                buffer::Usage::TRANSFER_SRC | buffer::Usage::TRANSFER_DST | buffer::Usage::STORAGE
+            }
+        };
+        let (memory, buffer, rsize) = unsafe {
+            let mut buffer = device
+                .create_buffer(
+                    stride as u64 * data_size,
+                    usage,
+                    hal::memory::SparseFlags::empty(),
+                )
+                .unwrap();
+            let requirements = device.get_buffer_requirements(&buffer);
+
+            let ty = memory_types
+                .into_iter()
+                .enumerate()
+                .position(|(id, memory_type)| {
+                    requirements.type_mask & (1 << id) != 0
+                        && memory_type.properties.contains(properties)
+                })
+                .unwrap()
+                .into();
+
+            let memory = device.allocate_memory(ty, requirements.size).unwrap();
+            device.bind_buffer_memory(&memory, 0, &mut buffer).unwrap();
+            (memory, buffer, requirements.size)
+        };
+        return Self {
+            buffer_type: BufferType::DEVICE,
+            buffer: buffer,
+            memory: memory,
+            buffer_size: rsize,
+        };
+    }
+}
+
+// impl<B: hal::Backend> Drop for BufferView<B> {
+//     fn drop(&mut self) {
+//         println!("drop->BufferView");
+//     }
+// }
+
+impl<B: hal::Backend> BufferView<B> {
     pub fn new(
         device: &B::Device,
         memory_types: &[MemoryType],

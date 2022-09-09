@@ -50,10 +50,10 @@ impl NewFunctor {
     pub fn apply<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         device_context: &mut NewDeviceContext,
-        mut lhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
-        mut rhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
+        mut lhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
+        mut rhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
         opcode: OpCode,
-    ) -> NewDataView<concrete_backend::Backend, T> {
+    ) -> UniBuffer<concrete_backend::Backend, T> {
         let shader = device_context.dispatch_kernel(opcode);
         let device_instance_ref = &device_context.device_instance;
         /*
@@ -151,12 +151,15 @@ impl NewFunctor {
         }
         // println!("res shape: {:?}", res_shape);
 
-        let mut res_buffer_functor = NewDataView::<concrete_backend::Backend, T>::new(
-            &device_context.device,
-            &device_instance_ref.memory_property().memory_types,
+        let res_tensor_view = TensorView::<T>::new(
             vec![Default::default(); res_dsize as usize],
             ElementType::F32,
             res_shape,
+        );
+        let mut res_buffer_functor = UniBuffer::<concrete_backend::Backend, T>::new(
+            &device_context.device,
+            &device_instance_ref.memory_property().memory_types,
+            res_tensor_view,
         );
 
         // TODO refactor into BufferView
@@ -436,6 +439,7 @@ impl NewFunctor {
 
             lhs_buffer_functor.try_drop(&device_context.device);
             rhs_buffer_functor.try_drop(&device_context.device);
+            // TODO-fix When run many iterations, pool is full, use this way to workaround
             device_context.descriptor_pool.reset();
 
             // buffer

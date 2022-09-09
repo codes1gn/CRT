@@ -25,12 +25,10 @@ pub struct NewVM {
     // TODO to bring device instance into interpreter, may need to impl Default
     // to allow new without explicit value of Session, thus not borrow a moved
     // value -> device instance
-    // data_buffer_f32: Vec<NewDataView<concrete_backend::Backend, f32>>,
-    pub data_buffer_f32: HashMap<usize, NewDataView<concrete_backend::Backend, f32>>,
-    // data_buffer_i32: Vec<DataView<concrete_backend::Backend, i32>>,
-    pub data_buffer_i32: HashMap<usize, NewDataView<concrete_backend::Backend, i32>>,
-    // FIX: ensure buffers are dropped before device,
-    // TODO: add generic types on later backend
+    // pub data_buffer_f32: HashMap<usize, UniBuffer<concrete_backend::Backend, f32>>,
+    pub data_buffer_f32: HashMap<usize, TensorView<f32>>,
+    // pub data_buffer_i32: HashMap<usize, UniBuffer<concrete_backend::Backend, i32>>,
+    pub data_buffer_i32: HashMap<usize, TensorView<i32>>,
     session: NewSession,
 }
 
@@ -337,30 +335,30 @@ impl NewVM {
     }
 
     pub fn get_idata(&self, index: usize) -> &Vec<i32> {
-        &self.data_buffer_i32[&index].raw_data
+        &self.data_buffer_i32[&index].data
     }
 
     // TODO to be moved into parametric arguments => push_data<T>(data: Vec<T>)
     pub fn push_data_buffer_i32(&mut self, index: usize, data: Vec<i32>) {
         let data_shape = vec![data.len()];
         // TODO-fix hide devices under device_context level
-        let mut data_buffer = NewDataView::<concrete_backend::Backend, i32>::new(
-            &self.session.device_context.device,
-            &self
-                .session
-                .device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            data,
-            ElementType::I32,
-            data_shape,
-        );
-        self.data_buffer_i32.insert(index, data_buffer);
+        let tensor_view = TensorView::<i32>::new(data, ElementType::I32, data_shape);
+        // TODO-trial lowering UniBuffer range, to make session dev independent
+        // let mut data_buffer = UniBuffer::<concrete_backend::Backend, i32>::new(
+        //     &self.session.device_context.device,
+        //     &self
+        //         .session
+        //         .device_context
+        //         .device_instance
+        //         .memory_property()
+        //         .memory_types,
+        //     tensor_view,
+        // );
+        self.data_buffer_i32.insert(index, tensor_view);
     }
 
     pub fn get_fdata(&self, index: usize) -> &Vec<f32> {
-        &self.data_buffer_f32[&index].raw_data
+        &self.data_buffer_f32[&index].data
     }
 
     pub fn get_fshape(&self, index: usize) -> &Vec<usize> {
@@ -369,35 +367,35 @@ impl NewVM {
 
     pub fn push_data_buffer_f32(&mut self, index: usize, data: Vec<f32>) {
         let data_shape = vec![data.len()];
-        let mut data_buffer = NewDataView::<concrete_backend::Backend, f32>::new(
-            &self.session.device_context.device,
-            &self
-                .session
-                .device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            data,
-            ElementType::F32,
-            data_shape,
-        );
-        self.data_buffer_f32.insert(index, data_buffer);
+        let tensor_view = TensorView::<f32>::new(data, ElementType::F32, data_shape);
+        // TODO-trial lowering UniBuffer range, to make session dev independent
+        // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
+        //     &self.session.device_context.device,
+        //     &self
+        //         .session
+        //         .device_context
+        //         .device_instance
+        //         .memory_property()
+        //         .memory_types,
+        //     tensor_view,
+        // );
+        self.data_buffer_f32.insert(index, tensor_view);
     }
 
     pub fn push_tensor_buffer(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
-        let mut data_buffer = NewDataView::<concrete_backend::Backend, f32>::new(
-            &self.session.device_context.device,
-            &self
-                .session
-                .device_context
-                .device_instance
-                .memory_property()
-                .memory_types,
-            data,
-            ElementType::F32,
-            shape,
-        );
-        self.data_buffer_f32.insert(index, data_buffer);
+        let tensor_view = TensorView::<f32>::new(data, ElementType::F32, shape);
+        // TODO-trial lowering UniBuffer range, to make session dev independent
+        // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
+        //     &self.session.device_context.device,
+        //     &self
+        //         .session
+        //         .device_context
+        //         .device_instance
+        //         .memory_property()
+        //         .memory_types,
+        //     tensor_view,
+        // );
+        self.data_buffer_f32.insert(index, tensor_view);
     }
 
     // entry functions for execute, that is public

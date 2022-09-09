@@ -98,11 +98,34 @@ impl NewDeviceContext {
 
     pub fn compute<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        lhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
-        rhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
+        lhs_tensor: TensorView<T>,
+        rhs_tensor: TensorView<T>,
         opcode: OpCode,
-    ) -> NewDataView<concrete_backend::Backend, T> {
-        NewFunctor::new().apply::<T>(self, lhs_buffer_functor, rhs_buffer_functor, opcode)
+    ) -> TensorView<T> {
+        let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, T>::new(
+            &self.device,
+            &self.device_instance.memory_property().memory_types,
+            lhs_tensor,
+        );
+        let mut rhs_buffer_functor = UniBuffer::<concrete_backend::Backend, T>::new(
+            &self.device,
+            &self.device_instance.memory_property().memory_types,
+            rhs_tensor,
+        );
+        let mut out_buffer_functor =
+            NewFunctor::new().apply::<T>(self, lhs_buffer_functor, rhs_buffer_functor, opcode);
+        // TODO-fix destroy memory when compute done, consider keep this in future for fusion
+        // purpose
+        out_buffer_functor.try_drop(&self.device);
+
+        // consume this UniBuffer and wrap a tensorview, before drop UniBuffer, destroy the real
+        // memory
+        let out_tensor = TensorView::<T>::new(
+            out_buffer_functor.raw_data,
+            ElementType::F32,
+            out_buffer_functor.shape,
+        );
+        out_tensor
     }
 }
 
