@@ -69,9 +69,9 @@ impl NewSession {
     pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         opcode: instruction::OpCode,
-        lhs_dataview: DataView<concrete_backend::Backend, T>,
-        rhs_dataview: DataView<concrete_backend::Backend, T>,
-    ) -> DataView<concrete_backend::Backend, T> {
+        lhs_dataview: NewDataView<concrete_backend::Backend, T>,
+        rhs_dataview: NewDataView<concrete_backend::Backend, T>,
+    ) -> NewDataView<concrete_backend::Backend, T> {
         self.device_context.device.start_capture();
         let outs = self.run::<T>(opcode, lhs_dataview, rhs_dataview);
         self.device_context.device.stop_capture();
@@ -81,29 +81,25 @@ impl NewSession {
     pub fn run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         opcode: instruction::OpCode,
-        lhs_dataview: DataView<concrete_backend::Backend, T>,
-        rhs_dataview: DataView<concrete_backend::Backend, T>,
-    ) -> DataView<concrete_backend::Backend, T> {
+        lhs_dataview: NewDataView<concrete_backend::Backend, T>,
+        rhs_dataview: NewDataView<concrete_backend::Backend, T>,
+    ) -> NewDataView<concrete_backend::Backend, T> {
         // step 2 open a physical compute device
 
         // step 4 load compiled spirv
+        //
+        let mut result_buffer = self
+            .device_context
+            .compute(lhs_dataview, rhs_dataview, opcode);
 
-        let mut functor = NewFunctor::new();
-        // TODO move shader in cache
-        // TODO add dispatch opcode and dispatch it dynamically later
-        // let shader = self.device_context.dispatch_kernel(instruction::OpCode::ADDF32);
-        let shader = self.device_context.dispatch_kernel(opcode);
-        functor.bind(shader);
-
-        // TODO support partial apply for one operator
-        let mut result_buffer =
-            functor.apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
+        // let mut result_buffer =
+        //    NewFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
 
         // clear shader module
         // self.device_context.device.destroy_shader_module(shader);
 
         // update dataview with new value
-        result_buffer.eval(&self.device_context.device);
+        // result_buffer.eval(&self.device_context.device);
         // print outs
         result_buffer
     }
@@ -130,7 +126,7 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let mut lhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
+        let mut lhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
             &se.device_context
                 .device_instance
@@ -140,7 +136,7 @@ mod tests {
             ElementType::F32,
             lhs_shape,
         );
-        let mut rhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
+        let mut rhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
             &se.device_context
                 .device_instance
@@ -164,7 +160,7 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let mut lhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
+        let mut lhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
             &se.device_context
                 .device_instance
@@ -174,7 +170,7 @@ mod tests {
             ElementType::F32,
             lhs_shape,
         );
-        let mut rhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
+        let mut rhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
             &se.device_context
                 .device_instance
@@ -198,7 +194,7 @@ mod tests {
         let lhs_shape = vec![2, 3];
         let rhs_shape = vec![3, 2];
         //create lhs dataview
-        let mut lhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
+        let mut lhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
             &se.device_context
                 .device_instance
@@ -208,7 +204,7 @@ mod tests {
             ElementType::F32,
             lhs_shape,
         );
-        let mut rhs_dataview = DataView::<concrete_backend::Backend, f32>::new(
+        let mut rhs_dataview = NewDataView::<concrete_backend::Backend, f32>::new(
             &se.device_context.device,
             &se.device_context
                 .device_instance

@@ -25,11 +25,13 @@ pub struct NewVM {
     // TODO to bring device instance into interpreter, may need to impl Default
     // to allow new without explicit value of Session, thus not borrow a moved
     // value -> device instance
-    session: NewSession,
-    // data_buffer_f32: Vec<DataView<concrete_backend::Backend, f32>>,
-    pub data_buffer_f32: HashMap<usize, DataView<concrete_backend::Backend, f32>>,
+    // data_buffer_f32: Vec<NewDataView<concrete_backend::Backend, f32>>,
+    pub data_buffer_f32: HashMap<usize, NewDataView<concrete_backend::Backend, f32>>,
     // data_buffer_i32: Vec<DataView<concrete_backend::Backend, i32>>,
-    pub data_buffer_i32: HashMap<usize, DataView<concrete_backend::Backend, i32>>,
+    pub data_buffer_i32: HashMap<usize, NewDataView<concrete_backend::Backend, i32>>,
+    // FIX: ensure buffers are dropped before device,
+    // TODO: add generic types on later backend
+    session: NewSession,
 }
 
 impl Drop for NewVM {
@@ -342,7 +344,7 @@ impl NewVM {
     pub fn push_data_buffer_i32(&mut self, index: usize, data: Vec<i32>) {
         let data_shape = vec![data.len()];
         // TODO-fix hide devices under device_context level
-        let mut data_buffer = DataView::<concrete_backend::Backend, i32>::new(
+        let mut data_buffer = NewDataView::<concrete_backend::Backend, i32>::new(
             &self.session.device_context.device,
             &self
                 .session
@@ -367,7 +369,7 @@ impl NewVM {
 
     pub fn push_data_buffer_f32(&mut self, index: usize, data: Vec<f32>) {
         let data_shape = vec![data.len()];
-        let mut data_buffer = DataView::<concrete_backend::Backend, f32>::new(
+        let mut data_buffer = NewDataView::<concrete_backend::Backend, f32>::new(
             &self.session.device_context.device,
             &self
                 .session
@@ -383,7 +385,7 @@ impl NewVM {
     }
 
     pub fn push_tensor_buffer(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
-        let mut data_buffer = DataView::<concrete_backend::Backend, f32>::new(
+        let mut data_buffer = NewDataView::<concrete_backend::Backend, f32>::new(
             &self.session.device_context.device,
             &self
                 .session

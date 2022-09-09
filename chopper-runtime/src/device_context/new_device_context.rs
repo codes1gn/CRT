@@ -7,7 +7,10 @@ use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
 
 use crate::base::kernel::*;
+use crate::base::*;
 use crate::buffer_view::*;
+use crate::functor::new_functor::NewFunctor;
+use crate::functor::*;
 use crate::instance::*;
 use crate::instruction::*;
 use crate::kernel::kernel_registry::*;
@@ -20,11 +23,11 @@ pub(crate) struct NewDeviceContext {
     //adapter: Adapter<concrete_backend::Backend>,
     //physical_device: concrete_backend::PhysicalDevice,
     //pub device_and_queue: hal::adapter::Gpu<concrete_backend::Backend>,
-    pub device: concrete_backend::Device,
-    pub queue_groups: Vec<hal::queue::family::QueueGroup<concrete_backend::Backend>>,
     // TODO .first_mut().unwrap(); before use, owner is Functor
     //
     pub descriptor_pool: concrete_backend::native::DescriptorPool,
+    pub queue_groups: Vec<hal::queue::family::QueueGroup<concrete_backend::Backend>>,
+    pub device: concrete_backend::Device,
 
     // FIX: device instance have to put at last since the drop rule of Rust is a sequence order
     // rather than a reverse order in struct. Thus, we have to make sure device instance is dropped
@@ -35,6 +38,7 @@ pub(crate) struct NewDeviceContext {
 impl Drop for NewDeviceContext {
     fn drop(&mut self) {
         unsafe {
+            // self.device.destroy_descriptor_pool(self.descriptor_pool);
             println!("drop::NewDeviceContext");
         };
     }
@@ -90,6 +94,15 @@ impl NewDeviceContext {
     pub fn dispatch_kernel(&self, op: OpCode) -> Kernel {
         let query_entry: String = op.to_kernel_query_entry();
         self.kernel_registry.dispatch_kernel(self, op, query_entry)
+    }
+
+    pub fn compute<T: SupportedType + std::clone::Clone + std::default::Default>(
+        &mut self,
+        lhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
+        rhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
+        opcode: OpCode,
+    ) -> NewDataView<concrete_backend::Backend, T> {
+        NewFunctor::new().apply::<T>(self, lhs_buffer_functor, rhs_buffer_functor, opcode)
     }
 }
 

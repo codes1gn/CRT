@@ -17,39 +17,11 @@ use crate::instance::*;
 use crate::instruction::*;
 
 // TODO make OpCode and NewFunctor as Trait to ensure pluggability.
-pub(crate) struct NewFunctor {
-    opcode: Option<OpCode>,
-    pub kernel: Option<Kernel>,
-}
-
-impl Drop for NewFunctor {
-    fn drop(&mut self) {
-        unsafe {
-            println!("drop::NewFunctor");
-        };
-    }
-}
-
-impl Default for NewFunctor {
-    fn default() -> NewFunctor {
-        NewFunctor {
-            opcode: Default::default(),
-            kernel: Default::default(),
-        }
-    }
-}
+pub(crate) struct NewFunctor {}
 
 impl NewFunctor {
     pub fn new() -> NewFunctor {
-        return Self {
-            opcode: Default::default(),
-            kernel: Default::default(),
-        };
-    }
-
-    // partially bind function to the NewFunctor, that will be applied to Self
-    pub fn bind(&mut self, kernel: Kernel) -> () {
-        self.kernel = Some(kernel);
+        return Self {};
     }
 
     pub fn wrap_kernel_specialise_attr(
@@ -78,10 +50,11 @@ impl NewFunctor {
     pub fn apply<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         device_context: &mut NewDeviceContext,
-        lhs_buffer_functor: DataView<concrete_backend::Backend, T>,
-        rhs_buffer_functor: DataView<concrete_backend::Backend, T>,
+        mut lhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
+        mut rhs_buffer_functor: NewDataView<concrete_backend::Backend, T>,
         opcode: OpCode,
-    ) -> DataView<concrete_backend::Backend, T> {
+    ) -> NewDataView<concrete_backend::Backend, T> {
+        let shader = device_context.dispatch_kernel(opcode);
         let device_instance_ref = &device_context.device_instance;
         /*
         let init_literal: Vec<T> = match T {
@@ -178,7 +151,7 @@ impl NewFunctor {
         }
         // println!("res shape: {:?}", res_shape);
 
-        let mut res_buffer_functor = DataView::<concrete_backend::Backend, T>::new(
+        let mut res_buffer_functor = NewDataView::<concrete_backend::Backend, T>::new(
             &device_context.device,
             &device_instance_ref.memory_property().memory_types,
             vec![Default::default(); res_dsize as usize],
@@ -220,7 +193,7 @@ impl NewFunctor {
                     binding: _BINDING_ID,
                     array_offset: 0,
                     descriptors: iter::once(pso::Descriptor::Buffer(
-                        &lhs_buffer_functor.device_buffer.buffer,
+                        &lhs_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                         buffer::SubRange::WHOLE,
                     )),
                 });
@@ -259,7 +232,7 @@ impl NewFunctor {
                     binding: _BINDING_ID,
                     array_offset: 0,
                     descriptors: iter::once(pso::Descriptor::Buffer(
-                        &rhs_buffer_functor.device_buffer.buffer,
+                        &rhs_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                         buffer::SubRange::WHOLE,
                     )),
                 });
@@ -298,7 +271,7 @@ impl NewFunctor {
                     binding: _BINDING_ID,
                     array_offset: 0,
                     descriptors: iter::once(pso::Descriptor::Buffer(
-                        &res_buffer_functor.device_buffer.buffer,
+                        &res_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                         buffer::SubRange::WHOLE,
                     )),
                 });
@@ -324,7 +297,7 @@ impl NewFunctor {
         // specialization: pso::Specialization::default()
         let entry_point = pso::EntryPoint {
             entry: "main",
-            module: self.kernel.as_ref().unwrap(),
+            module: &shader,
             specialization: pso::Specialization {
                 // constants: self.wrap_kernel_specialise_attr(opcode).0,
                 constants: spec_constant,
@@ -355,8 +328,8 @@ impl NewFunctor {
 
             // move ins data
             command_buffer.copy_buffer(
-                &lhs_buffer_functor.host_buffer.buffer,
-                &lhs_buffer_functor.device_buffer.buffer,
+                &lhs_buffer_functor.host_buffer.as_ref().unwrap().buffer,
+                &lhs_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                 iter::once(command::BufferCopy {
                     src: 0,
                     dst: 0,
@@ -364,8 +337,8 @@ impl NewFunctor {
                 }),
             );
             command_buffer.copy_buffer(
-                &rhs_buffer_functor.host_buffer.buffer,
-                &rhs_buffer_functor.device_buffer.buffer,
+                &rhs_buffer_functor.host_buffer.as_ref().unwrap().buffer,
+                &rhs_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                 iter::once(command::BufferCopy {
                     src: 0,
                     dst: 0,
@@ -381,7 +354,7 @@ impl NewFunctor {
                     states: buffer::Access::TRANSFER_WRITE
                         ..buffer::Access::SHADER_READ | buffer::Access::SHADER_WRITE,
                     families: None,
-                    target: &lhs_buffer_functor.device_buffer.buffer,
+                    target: &lhs_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                     range: buffer::SubRange::WHOLE,
                 }),
             );
@@ -392,7 +365,7 @@ impl NewFunctor {
                     states: buffer::Access::TRANSFER_WRITE
                         ..buffer::Access::SHADER_READ | buffer::Access::SHADER_WRITE,
                     families: None,
-                    target: &rhs_buffer_functor.device_buffer.buffer,
+                    target: &rhs_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                     range: buffer::SubRange::WHOLE,
                 }),
             );
@@ -417,15 +390,15 @@ impl NewFunctor {
                     states: buffer::Access::SHADER_READ | buffer::Access::SHADER_WRITE
                         ..buffer::Access::TRANSFER_READ,
                     families: None,
-                    target: &res_buffer_functor.device_buffer.buffer,
+                    target: &res_buffer_functor.device_buffer.as_ref().unwrap().buffer,
                     range: buffer::SubRange::WHOLE,
                 }),
             );
 
             // move outs data
             command_buffer.copy_buffer(
-                &res_buffer_functor.device_buffer.buffer,
-                &res_buffer_functor.host_buffer.buffer,
+                &res_buffer_functor.device_buffer.as_ref().unwrap().buffer,
+                &res_buffer_functor.host_buffer.as_ref().unwrap().buffer,
                 iter::once(command::BufferCopy {
                     src: 0,
                     dst: 0,
@@ -447,8 +420,10 @@ impl NewFunctor {
             command_pool.free(iter::once(command_buffer));
         }
 
+        res_buffer_functor.eval(&device_context.device);
+
         unsafe {
-            // device_context.device.destroy_shader_module(shader);
+            device_context.device.destroy_shader_module(shader);
             device_context.device.destroy_command_pool(command_pool);
             device_context.device.destroy_fence(fence);
 
@@ -458,30 +433,54 @@ impl NewFunctor {
             device_context
                 .device
                 .destroy_descriptor_set_layout(descriptor_set_layout_rhs);
-            device_context
-                .device
-                .destroy_buffer(lhs_buffer_functor.device_buffer.buffer);
-            device_context
-                .device
-                .destroy_buffer(lhs_buffer_functor.host_buffer.buffer);
-            device_context
-                .device
-                .destroy_buffer(rhs_buffer_functor.device_buffer.buffer);
-            device_context
-                .device
-                .destroy_buffer(rhs_buffer_functor.host_buffer.buffer);
-            device_context
-                .device
-                .free_memory(lhs_buffer_functor.device_buffer.memory);
-            device_context
-                .device
-                .free_memory(lhs_buffer_functor.host_buffer.memory);
-            device_context
-                .device
-                .free_memory(rhs_buffer_functor.device_buffer.memory);
-            device_context
-                .device
-                .free_memory(rhs_buffer_functor.host_buffer.memory);
+
+            lhs_buffer_functor.try_drop(&device_context.device);
+            rhs_buffer_functor.try_drop(&device_context.device);
+            device_context.descriptor_pool.reset();
+
+            // buffer
+            // device_context
+            //     .device
+            //     .destroy_buffer(lhs_buffer_functor.device_buffer.buffer);
+            // device_context
+            //     .device
+            //     .destroy_buffer(lhs_buffer_functor.host_buffer.buffer);
+            // device_context
+            //     .device
+            //     .destroy_buffer(rhs_buffer_functor.device_buffer.buffer);
+            // device_context
+            //     .device
+            //     .destroy_buffer(rhs_buffer_functor.host_buffer.buffer);
+            // // res
+            // // device_context
+            // //     .device
+            // //     .destroy_buffer(res_buffer_functor.device_buffer.buffer);
+            // // device_context
+            // //     .device
+            // //     .destroy_buffer(res_buffer_functor.host_buffer.buffer);
+            // res_buffer_functor.try_drop(&device_context.device);
+
+            // // memory
+            // device_context
+            //     .device
+            //     .free_memory(lhs_buffer_functor.device_buffer.memory);
+            // device_context
+            //     .device
+            //     .free_memory(lhs_buffer_functor.host_buffer.memory);
+            // device_context
+            //     .device
+            //     .free_memory(rhs_buffer_functor.device_buffer.memory);
+            // device_context
+            //     .device
+            //     .free_memory(rhs_buffer_functor.host_buffer.memory);
+            // // res
+            // // device_context
+            // //     .device
+            // //     .free_memory(res_buffer_functor.device_buffer.memory);
+            // // device_context
+            // //     .device
+            // //     .free_memory(res_buffer_functor.host_buffer.memory);
+
             device_context
                 .device
                 .destroy_pipeline_layout(pipeline_layout);

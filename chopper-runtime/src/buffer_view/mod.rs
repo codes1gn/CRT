@@ -31,6 +31,91 @@ pub struct DataView<B: hal::Backend, T> {
     pub shape: Vec<usize>,
 }
 
+#[derive(Debug)]
+pub struct NewDataView<B: hal::Backend, T> {
+    pub host_buffer: Option<BufferView<B>>,
+    pub device_buffer: Option<BufferView<B>>,
+    pub raw_data: Vec<T>,
+    pub data_size: usize,
+    pub shape: Vec<usize>,
+}
+
+impl<B: hal::Backend, T> NewDataView<B, T> {
+    pub fn try_drop(&mut self, device: &B::Device) {
+        unsafe {
+            if let Some(hostbuffer) = self.host_buffer.take() {
+                device.destroy_buffer(hostbuffer.buffer);
+                device.free_memory(hostbuffer.memory);
+            }
+            if let Some(devbuffer) = self.device_buffer.take() {
+                device.destroy_buffer(devbuffer.buffer);
+                device.free_memory(devbuffer.memory);
+            }
+        }
+    }
+}
+
+impl<B: hal::Backend, T> NewDataView<B, T> {
+    pub fn new(
+        device: &B::Device,
+        memory_types: &[MemoryType],
+        data: Vec<T>,
+        dtype: ElementType,
+        shape: Vec<usize>,
+    ) -> NewDataView<B, T> {
+        // TODO tobe handled by constant parameter
+        let dsize = data.len();
+        // TODO remove this assertion and make new constructor more adaptive
+        // assert_eq!(dsize, data_size);
+
+        let mut host_buffer =
+            BufferView::<B>::new(device, memory_types, BufferType::HOST, dsize as u64, dtype);
+        let mut device_buffer = BufferView::<B>::new(
+            device,
+            memory_types,
+            BufferType::DEVICE,
+            dsize as u64,
+            dtype,
+        );
+        unsafe {
+            // mapping => the handle at host side of device memory
+            let mapping = device
+                .map_memory(&mut host_buffer.memory, memory::Segment::ALL)
+                .unwrap();
+            ptr::copy_nonoverlapping(
+                data.as_ptr() as *const u8,
+                mapping,
+                dsize * F32STRIDE as usize,
+            );
+            device.unmap_memory(&mut host_buffer.memory);
+        }
+        return Self {
+            host_buffer: Some(host_buffer),
+            device_buffer: Some(device_buffer),
+            raw_data: data,
+            data_size: dsize,
+            shape: shape,
+        };
+    }
+
+    pub fn eval(&mut self, device: &B::Device) {
+        unsafe {
+            let mapping = device
+                .map_memory(
+                    &mut self.host_buffer.as_mut().unwrap().memory,
+                    memory::Segment::ALL,
+                )
+                .unwrap();
+            ptr::copy_nonoverlapping(
+                mapping,
+                self.raw_data.as_ptr() as *mut u8,
+                self.data_size * F32STRIDE as usize,
+            );
+            device.unmap_memory(&mut self.host_buffer.as_mut().unwrap().memory);
+        }
+    }
+}
+
 impl<B: hal::Backend, T> DataView<B, T> {
     pub fn new(
         device: &B::Device,

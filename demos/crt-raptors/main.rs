@@ -12,6 +12,66 @@ use hal::{adapter::Adapter, adapter::MemoryType, buffer, command, memory, pool, 
 
 use chopper_runtime::prelude::*;
 
+fn test_pressure() {
+    let mut ipt = NewInterpreter::new();
+    // ok
+    let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
+    let status = ipt.mock_operation("%1 = crt.literal.const.f32! 7.4 : f32\n");
+    assert_eq!(status.is_ok(), true);
+    let status_code = status.unwrap();
+    assert_eq!(status_code, 0);
+
+    // add
+    let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
+    assert_eq!(status.is_ok(), true);
+    let status_code = status.unwrap();
+    assert_eq!(status_code, 0);
+    assert_float_eq!(*ipt.vm.get_fdata(1), vec![8.7], rmax_all <= 0.00001);
+
+    let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
+    let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
+    assert_eq!(status.is_ok(), true);
+    let status_code = status.unwrap();
+    assert_eq!(status_code, 0);
+    assert_float_eq!(*ipt.vm.get_fdata(1), vec![10.], rmax_all <= 0.00001);
+
+    for k in 1..1000 {
+        let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
+        let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
+    }
+    assert_float_eq!(*ipt.vm.get_fdata(1), vec![1308.7039], rmax_all <= 0.00001);
+}
+
+fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
+    let mut ipt = NewInterpreter::new();
+    // ok
+    let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
+    let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
+    let status = ipt.mock_operation("%1 = crt.literal.const.f32! 7.4 : f32\n");
+    assert_eq!(status.is_ok(), true);
+    let status_code = status.unwrap();
+    assert_eq!(status_code, 0);
+
+    // inspect data valid
+    assert_eq!(*ipt.vm.get_fdata(8), vec![1.3]);
+    assert_eq!(*ipt.vm.get_fdata(7), vec![2.9]);
+
+    // add
+    let status = ipt.mock_operation("%4 = crt.add.f32! %8, %7 : f32\n");
+    assert_eq!(status.is_ok(), true);
+    let status_code = status.unwrap();
+    assert_eq!(status_code, 0);
+    assert_float_eq!(*ipt.vm.get_fdata(4), vec![4.2], rmax_all <= 0.00001);
+
+    // sub
+    let status = ipt.mock_operation("%5 = crt.sub.f32! %1, %4 : f32\n");
+    assert_eq!(status.is_ok(), true);
+    let status_code = status.unwrap();
+    assert_eq!(status_code, 0);
+    // TODO package this assert macro into utils, hide rmax_all setting from hardcode
+    assert_float_eq!(*ipt.vm.get_fdata(5), vec![3.2], rmax_all <= 0.00001);
+}
+
 fn test_mock_run() {
     let mut ipt = NewInterpreter::new();
     let status = ipt.mock_operation(
@@ -69,6 +129,8 @@ fn test_bytecode_run() {
 }
 
 fn main() {
-    test_mock_run();
-    test_bytecode_run();
+    // test_mock_run();
+    // test_bytecode_run();
+    // test_mock_bytecode_f32_binary_add_then_sub_f32();
+    test_pressure();
 }

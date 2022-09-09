@@ -98,7 +98,6 @@ impl Drop for RawInstance {
                 None => {}
             }
 
-            println!("destroy raw instance");
             if !self.handle_is_external {
                 self.inner.destroy_instance(None);
             }

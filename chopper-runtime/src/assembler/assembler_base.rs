@@ -127,7 +127,7 @@ impl AsmInstruction {
                     }
                 }
                 Token::F32Literal { value } => {
-                    println!("{:?}", value);
+                    // println!("{:?}", value);
                     let values = value.to_le_bytes();
                     for _value in values {
                         results.push(_value);
