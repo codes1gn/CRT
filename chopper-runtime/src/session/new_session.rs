@@ -150,7 +150,9 @@ impl NewSession {
 
         // step 4 load compiled spirv
         //
-        let mut out_tensor = self.device_context.compute(lhs_tensor, rhs_tensor, opcode);
+        let mut out_tensor = self
+            .device_context
+            .compute_legacy(lhs_tensor, rhs_tensor, opcode);
 
         // let mut result_buffer =
         //    NewFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);

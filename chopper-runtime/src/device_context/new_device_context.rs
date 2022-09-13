@@ -48,8 +48,8 @@ impl Drop for NewDeviceContext {
 }
 
 // kaigao
-impl ExecutorTrait for NewDeviceContext {
-    type TensorLike = TensorView<f32>;
+impl ExecutorLike for NewDeviceContext {
+    type TensorType = TensorView<f32>;
     fn new() -> NewDeviceContext {
         let mut di = DeviceInstance::new();
         let mut device_and_queue = di.device_and_queue();
@@ -78,12 +78,8 @@ impl ExecutorTrait for NewDeviceContext {
             descriptor_pool: descriptor_pool,
         };
     }
-    fn compute_it(&self, wkl: Self::TensorLike) -> Self::TensorLike {
+    fn compute(&self, wkl: Self::TensorType) -> Self::TensorType {
         wkl
-    }
-    fn compute_wkl(&self, workload: Self::TensorLike) -> Self::TensorLike {
-        // workload.mock_run();
-        workload
     }
 }
 
@@ -111,7 +107,7 @@ impl NewDeviceContext {
         self.kernel_registry.dispatch_kernel(self, op, query_entry)
     }
 
-    pub fn compute<T: SupportedType + std::clone::Clone + std::default::Default>(
+    pub fn compute_legacy<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
         lhs_tensor: TensorView<T>,
         rhs_tensor: TensorView<T>,

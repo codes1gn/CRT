@@ -32,7 +32,7 @@ pub struct DataView<B: hal::Backend, T> {
     pub shape: Vec<usize>,
 }
 
-impl<T> TensorTrait for TensorView<T> {}
+impl<T> TensorLike for TensorView<T> {}
 
 #[derive(Debug, Clone)]
 pub struct TensorView<T> {
