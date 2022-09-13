@@ -12,8 +12,8 @@ use crate::device_context::*;
 use crate::instruction::*;
 
 #[derive(Debug)]
-pub(crate) struct NewKernelRegistry {
-    executable_cache_table: HashMap<String, KernelByteCode>,
+pub struct NewKernelRegistry {
+    pub executable_cache_table: HashMap<String, KernelByteCode>,
 }
 
 impl Drop for NewKernelRegistry {

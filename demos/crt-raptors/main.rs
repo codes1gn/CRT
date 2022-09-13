@@ -135,6 +135,6 @@ fn test_bytecode_run() {
 fn main() {
     // test_mock_run();
     // test_bytecode_run();
-    // test_mock_bytecode_f32_binary_add_then_sub_f32();
-    test_pressure();
+    test_mock_bytecode_f32_binary_add_then_sub_f32();
+    // test_pressure();
 }

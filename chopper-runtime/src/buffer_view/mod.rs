@@ -5,6 +5,7 @@ use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
+use raptors::prelude::*;
 
 use crate::base::constants::*;
 use crate::device_context::*;
@@ -31,7 +32,9 @@ pub struct DataView<B: hal::Backend, T> {
     pub shape: Vec<usize>,
 }
 
-#[derive(Debug)]
+impl<T> TensorTrait for TensorView<T> {}
+
+#[derive(Debug, Clone)]
 pub struct TensorView<T> {
     pub data: Vec<T>,
     pub dtype: ElementType,

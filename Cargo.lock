@@ -222,10 +222,15 @@ dependencies = [
  "ndarray 0.13.1",
  "nom",
  "numpy",
+ "opentelemetry",
+ "opentelemetry-jaeger",
  "pyo3",
  "raptors",
  "serde",
  "tokio",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
  "transpose",
 ]
 

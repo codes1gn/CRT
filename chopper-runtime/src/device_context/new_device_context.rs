@@ -6,20 +6,23 @@ use std::{borrow::Cow, collections::HashMap, fs, iter, ptr, slice, str::FromStr,
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
 
+use raptors::prelude::*;
+
 use crate::base::kernel::*;
 use crate::base::*;
 use crate::buffer_view::*;
 use crate::functor::new_functor::NewFunctor;
 use crate::functor::*;
 use crate::instance::*;
+use crate::instruction;
 use crate::instruction::*;
 use crate::kernel::kernel_registry::*;
 use crate::kernel::new_kernel_registry::NewKernelRegistry;
 
 #[derive(Debug)]
-pub(crate) struct NewDeviceContext {
+pub struct NewDeviceContext {
     // TODO refactor into kernel_registry
-    kernel_registry: NewKernelRegistry,
+    pub kernel_registry: NewKernelRegistry,
     //adapter: Adapter<concrete_backend::Backend>,
     //physical_device: concrete_backend::PhysicalDevice,
     //pub device_and_queue: hal::adapter::Gpu<concrete_backend::Backend>,
@@ -44,8 +47,10 @@ impl Drop for NewDeviceContext {
     }
 }
 
-impl NewDeviceContext {
-    pub fn new() -> NewDeviceContext {
+// kaigao
+impl ExecutorTrait for NewDeviceContext {
+    type TensorLike = TensorView<f32>;
+    fn new() -> NewDeviceContext {
         let mut di = DeviceInstance::new();
         let mut device_and_queue = di.device_and_queue();
         let mut descriptor_pool = unsafe {
@@ -73,7 +78,16 @@ impl NewDeviceContext {
             descriptor_pool: descriptor_pool,
         };
     }
+    fn compute_it(&self, wkl: Self::TensorLike) -> Self::TensorLike {
+        wkl
+    }
+    fn compute_wkl(&self, workload: Self::TensorLike) -> Self::TensorLike {
+        // workload.mock_run();
+        workload
+    }
+}
 
+impl NewDeviceContext {
     pub fn register_kernels(&mut self, file_path: &str, query_entry: String) {
         // glsl_to_spirv, TODO, support more, spv format and readable spirv ir.
         // TODO, read external config of all kernels, and cache it by OpCode
@@ -91,7 +105,8 @@ impl NewDeviceContext {
         &self.kernel_registry
     }
 
-    pub fn dispatch_kernel(&self, op: OpCode) -> Kernel {
+    // TODO seal raptors OpCode inside and not expose
+    pub fn dispatch_kernel(&self, op: instruction::OpCode) -> Kernel {
         let query_entry: String = op.to_kernel_query_entry();
         self.kernel_registry.dispatch_kernel(self, op, query_entry)
     }
@@ -100,7 +115,7 @@ impl NewDeviceContext {
         &mut self,
         lhs_tensor: TensorView<T>,
         rhs_tensor: TensorView<T>,
-        opcode: OpCode,
+        opcode: instruction::OpCode,
     ) -> TensorView<T> {
         let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, T>::new(
             &self.device,

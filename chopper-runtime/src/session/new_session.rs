@@ -17,11 +17,19 @@ use crate::functor::*;
 use crate::instance::*;
 use crate::instruction;
 
+// TODO-move to interpreter initialization
+use opentelemetry::global;
+use tokio::io::Result;
+// TODO(avoid bug): use tracing::info;
+use log::{debug, info};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct NewSession {
     pub(crate) device_context: NewDeviceContext,
-    pub actor_system: ActorSystemHandle,
+    pub actor_system: ActorSystemHandle<NewDeviceContext, TensorView<f32>>,
 }
 
 impl Drop for NewSession {
@@ -32,11 +40,61 @@ impl Drop for NewSession {
     }
 }
 
+#[macro_export]
+macro_rules! build_crt {
+    ($name:expr) => {{
+        let mut sys_config = SystemConfig::new($name, "info");
+        let mut sys_builder = SystemBuilder::new();
+        sys_config.set_ranks(0 as usize);
+        let system = sys_builder.build_with_config::<NewDeviceContext, TensorView<f32>>(sys_config);
+        system
+    }};
+}
+
 impl NewSession {
     #[tokio::main]
     pub async fn new() -> NewSession {
         let mut device_context = NewDeviceContext::new();
-        let mut system = build_system!("Raptors");
+
+        // init raptors env
+        // TODO(debug) fix to allow tracing with vk_device, perhaps backend vulkan uses env_logger
+        // this causes conflict
+        std::env::set_var("RUST_LOG", "info");
+        // if std::env::args().any(|arg| arg == "--trace") {
+        //     global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+        //     let tracer = opentelemetry_jaeger::new_pipeline()
+        //         .with_service_name("raptors")
+        //         .install_simple()
+        //         .unwrap();
+
+        //     let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+        //     tracing_subscriber::registry()
+        //         .with(opentelemetry)
+        //         .with(fmt::Layer::default())
+        //         .try_init()
+        //         .unwrap();
+        // } else {
+        //     //tracing_subscriber::fmt::try_init().unwrap();
+        //     env_logger::init();
+        // };
+
+        // perform raptors actions
+        let mut system = build_crt!("Raptors");
+        // let system = {
+        //     let mut sys_config = SystemConfig::new($name, "info");
+        //     let mut sys_builder = SystemBuilder::new();
+        //     sys_config.set_ranks(0 as usize);
+        //     let system = sys_builder.build_with_config::<Executor, Workload>(sys_config);
+        //     system
+        // };
+        //
+        // spawn actors, in the dev, we try with two actors
+        // one with vk device context that owns the gpu
+        // the other works with CPU
+        // TODO: add a CPU high perf lib, maybe rayon
+        // TODO: maybe remove Clone requirements for type parameter U = TensorView<f32>
+        let msg: TypedMessage<TensorView<f32>> = build_msg!("spawn", 1);
+        system.issue_order(msg).await;
 
         return Self {
             device_context: device_context,
