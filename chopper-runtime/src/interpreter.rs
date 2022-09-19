@@ -1,7 +1,5 @@
 extern crate float_eq;
 
-pub mod new_interpreter;
-
 use float_eq::{assert_float_eq, float_eq};
 
 use nom::types::CompleteStr;
@@ -13,20 +11,20 @@ use std::num::ParseIntError;
 use crate::assembler::parse_bytecode;
 use crate::base::errors::*;
 use crate::instance::*;
-use crate::session::*;
 use crate::vm::VM;
 
 #[derive(Debug)]
-pub struct Interpreter<'a> {
+pub struct Interpreter {
     history: Vec<String>,
-    pub vm: VM<'a>,
+    pub vm: VM,
 }
 
-impl<'a> Interpreter<'a> {
-    pub fn new(ist: &'a DeviceInstance) -> Interpreter<'a> {
+impl Interpreter {
+    pub fn new() -> Interpreter {
+        // let ist = DeviceInstance::new();
         Interpreter {
             history: vec![],
-            vm: VM::new(&ist),
+            vm: VM::new(),
         }
     }
 
@@ -35,7 +33,7 @@ impl<'a> Interpreter<'a> {
         self.vm = VM::new(&self.hw_instance);
     }
 
-    pub fn vm(&self) -> &mut VM<'a> {
+    pub fn vm(&self) -> &mut VM {
         self.vm.as_ref_mut().unwrap()
     }
     */
@@ -160,16 +158,13 @@ mod tests {
     #[test]
     fn test_create_interpreter() {
         //let ipt = Interpreter::new();
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         assert_eq!(ipt.history.len(), 0);
     }
 
     #[test]
     fn test_push_history() {
-        //let mut ipt = Interpreter::new();
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         let fake_cmd = String::from("exit");
         ipt.history.push(fake_cmd.to_string());
         assert_eq!(ipt.history[0], "exit");
@@ -177,9 +172,7 @@ mod tests {
 
     #[test]
     fn test_mock_halt() {
-        //let mut ipt = Interpreter::new();
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         let status = ipt.mock_operation("quit");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -188,9 +181,7 @@ mod tests {
 
     #[test]
     fn test_mock_history() {
-        //let mut ipt = Interpreter::new();
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         let status = ipt.mock_operation("history");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -199,9 +190,7 @@ mod tests {
 
     #[test]
     fn test_mock_list() {
-        //let mut ipt = Interpreter::new();
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         let status = ipt.mock_operation("list");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -210,8 +199,7 @@ mod tests {
 
     #[test]
     fn test_mock_bytecode_halt() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         let status = ipt.mock_operation("halt");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -221,8 +209,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_i32_literal() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         // TODO make runtime check on matching const.i32 and i32 type annotation
         let status = ipt.mock_operation("%17 = crt.literal.const.i32! 13 : i32\n");
@@ -235,8 +222,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_literal() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
         assert_eq!(status.is_ok(), true);
@@ -248,8 +234,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_add_i32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -272,8 +257,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_sub_i32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -296,8 +280,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_mul_i32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -320,8 +303,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_floordiv_i32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -344,8 +326,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_floordiv_i32_case2() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 7 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -368,8 +349,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_add_f32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -392,8 +372,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_sub_f32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -416,8 +395,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_mul_f32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -440,8 +418,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_div_f32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -464,8 +441,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_binary_add_then_sub_i32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.i32! 3 : i32\n");
         let status = ipt.mock_operation("%7 = crt.literal.const.i32! 2 : i32\n");
@@ -497,8 +473,7 @@ mod tests {
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
         let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
@@ -529,8 +504,7 @@ mod tests {
 
     #[test]
     fn test_mock_bytecode_tensor_add() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation(
             "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
@@ -570,8 +544,7 @@ mod tests {
 
     #[test]
     fn test_mock_bytecode_tensor_sub() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         let status = ipt.mock_operation(
             "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
@@ -611,8 +584,7 @@ mod tests {
 
     #[test]
     fn test_mock_bytecode_tensor_matmul() {
-        let ist = DeviceInstance::new();
-        let mut ipt = Interpreter::new(&ist);
+        let mut ipt = Interpreter::new();
         // ok
         // matmul(3x2, 2x3) => (3x3)
         let status = ipt.mock_operation(

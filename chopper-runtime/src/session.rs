@@ -10,9 +10,8 @@ use raptors::prelude::*;
 use crate::base::kernel::*;
 use crate::base::*;
 use crate::buffer_view::*;
-use crate::device_context::new_device_context::NewDeviceContext;
 use crate::device_context::*;
-use crate::functor::new_functor::NewFunctor;
+use crate::functor::TensorFunctor;
 use crate::functor::*;
 use crate::instance::*;
 use crate::instruction;
@@ -27,15 +26,15 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 // make it pub(crate) -> pub
 #[derive(Debug)]
-pub struct NewSession {
-    pub(crate) device_context: NewDeviceContext,
-    pub actor_system: ActorSystemHandle<NewDeviceContext, TensorView<f32>>,
+pub struct HostSession {
+    pub(crate) device_context: DeviceContext,
+    pub actor_system: ActorSystemHandle<DeviceContext, TensorView<f32>>,
 }
 
-impl Drop for NewSession {
+impl Drop for HostSession {
     fn drop(&mut self) {
         unsafe {
-            println!("drop NewSession");
+            println!("drop HostSession");
         };
     }
 }
@@ -46,15 +45,15 @@ macro_rules! build_crt {
         let mut sys_config = SystemConfig::new($name, "info");
         let mut sys_builder = SystemBuilder::new();
         sys_config.set_ranks(0 as usize);
-        let system = sys_builder.build_with_config::<NewDeviceContext, TensorView<f32>>(sys_config);
+        let system = sys_builder.build_with_config::<DeviceContext, TensorView<f32>>(sys_config);
         system
     }};
 }
 
-impl NewSession {
+impl HostSession {
     #[tokio::main]
-    pub async fn new() -> NewSession {
-        let mut device_context = NewDeviceContext::new();
+    pub async fn new() -> HostSession {
+        let mut device_context = DeviceContext::new();
 
         // init raptors env
         // TODO(debug) fix to allow tracing with vk_device, perhaps backend vulkan uses env_logger
@@ -146,16 +145,20 @@ impl NewSession {
         lhs_tensor: TensorView<T>,
         rhs_tensor: TensorView<T>,
     ) -> TensorView<T> {
-        // step 2 open a physical compute device
+        let opmsg = match opcode {
+            instruction::OpCode::ADDF32 => build_comp_msg!("add-op"),
+            instruction::OpCode::SUBF32 => build_comp_msg!("sub-op"),
+            _ => build_msg!("identity-op"),
+        };
+        println!("{:#?}", opmsg);
+        // self.actor_system.issue_order(opmsg.clone()).await;
 
-        // step 4 load compiled spirv
-        //
         let mut out_tensor = self
             .device_context
             .compute_legacy(lhs_tensor, rhs_tensor, opcode);
 
         // let mut result_buffer =
-        //    NewFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
+        //    TensorFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
 
         // clear shader module
         // self.device_context.device.destroy_shader_module(shader);
@@ -175,13 +178,13 @@ mod tests {
     #[test]
     fn test_create_session() {
         // defaultly to Add, TODO, add more dispatch path
-        let session = NewSession::new();
+        let session = HostSession::new();
         assert_eq!(0, 0);
     }
 
     #[test]
     fn test_e2e_add() {
-        let mut se = NewSession::new();
+        let mut se = HostSession::new();
         se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
@@ -215,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_e2e_sub() {
-        let mut se = NewSession::new();
+        let mut se = HostSession::new();
         se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
@@ -231,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_e2e_matmul() {
-        let mut se = NewSession::new();
+        let mut se = HostSession::new();
         se.init();
         let lhs = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let rhs = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0];

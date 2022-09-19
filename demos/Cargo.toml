@@ -8,10 +8,6 @@ edition = "2021"
 
 
 [[bin]]
-name = "demo-standalone"
-path = "demo-standalone/main.rs"
-
-[[bin]]
 name = "crt_test"
 path = "crt-raptors/main.rs"
 

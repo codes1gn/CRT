@@ -50,10 +50,8 @@ pub mod prelude {
     pub use crate::device_context::*;
     pub use crate::instance::*;
     pub use crate::instruction::*;
-    pub use crate::interpreter::new_interpreter::NewInterpreter;
     pub use crate::interpreter::Interpreter;
-    pub use crate::session::new_session::NewSession;
-    pub use crate::session::Session;
+    pub use crate::session::HostSession;
 }
 
 #[pyclass(name = "CallableModule")]
@@ -148,13 +146,12 @@ impl CallableModule {
     fn forward<'py>(
         &mut self,
         py: Python<'py>,
-        ist: &DeviceInstance,
         arg0: &PyArray2<f32>,
         arg1: &PyArray2<f32>,
         kwargs: Option<&PyDict>,
     ) -> &'py PyArray1<f32> {
         // println!("create interpreter");
-        let mut ipt = interpreter::Interpreter::new(&ist);
+        let mut ipt = interpreter::Interpreter::new();
 
         let lhs_operand = 0;
         let rhs_operand = 1;
@@ -181,17 +178,17 @@ impl CallableModule {
         }
 
         let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
-        outs_dataview.raw_data.to_pyarray(py)
+        outs_dataview.data.to_pyarray(py)
         //let _data = vec![
-        //    outs_dataview.raw_data[0..3],
-        //    outs_dataview.raw_data[3..6],
-        //    outs_dataview.raw_data[6..9],
+        //    outs_dataview.data[0..3],
+        //    outs_dataview.data[3..6],
+        //    outs_dataview.data[6..9],
         //];
         //_data.to_pyarray(py)
         //
         // let gil = pyo3::Python::acquire_gil();
-        //let outs: &PyArray2<f32> = PyArray2::<f32>::from_vec2(gil.python(), &outs_dataview.raw_data).unwrap();
-        // let outs: &PyArray<f32> = PyArray::<f32>::from_vec(gil.python(), &outs_dataview.raw_data).unwrap();
+        //let outs: &PyArray2<f32> = PyArray2::<f32>::from_vec2(gil.python(), &outs_dataview.data).unwrap();
+        // let outs: &PyArray<f32> = PyArray::<f32>::from_vec(gil.python(), &outs_dataview.data).unwrap();
         // outs
     }
 
@@ -199,14 +196,13 @@ impl CallableModule {
     fn backward<'py>(
         &mut self,
         py: Python<'py>,
-        ist: &DeviceInstance,
         arg0: &PyArray2<f32>,
         arg1: &PyArray2<f32>,
         arg2: &PyArray2<f32>,
         kwargs: Option<&PyDict>,
     ) -> (&'py PyArray1<f32>, &'py PyArray1<f32>) {
         // println!("create interpreter");
-        let mut ipt = interpreter::Interpreter::new(&ist);
+        let mut ipt = interpreter::Interpreter::new();
 
         let grad = 0;
         let gradworkaroundduplicate = 9;
@@ -255,10 +251,7 @@ impl CallableModule {
 
         let lhs_outs = ipt.vm.data_buffer_f32.remove(&lhs_grad).unwrap();
         let rhs_outs = ipt.vm.data_buffer_f32.remove(&rhs_grad).unwrap();
-        (
-            lhs_outs.raw_data.to_pyarray(py),
-            rhs_outs.raw_data.to_pyarray(py),
-        )
+        (lhs_outs.data.to_pyarray(py), rhs_outs.data.to_pyarray(py))
     }
 }
 
@@ -268,9 +261,9 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<CallableModule>()?;
 
     #[pyfn(m)]
-    fn demo(ist: &DeviceInstance) -> usize {
+    fn demo() -> usize {
         // let ist = instance::DeviceInstance::new();
-        let mut ipt = interpreter::Interpreter::new(&ist);
+        let mut ipt = interpreter::Interpreter::new();
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
         let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
@@ -302,7 +295,6 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m)]
     fn load_and_invoke(
-        ist: &DeviceInstance,
         lhs_operand: Vec<f32>,
         lhs_shape: Vec<usize>,
         rhs_operand: Vec<f32>,
@@ -320,7 +312,7 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
         let outs_register = 2;
 
         // create arguments
-        let mut ipt = interpreter::Interpreter::new(&ist);
+        let mut ipt = interpreter::Interpreter::new();
         let status = ipt.run_bytecode(format!(
             "%{} = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
             lhs_register
@@ -331,7 +323,7 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
         ));
         let status = ipt.run_bytecode(format!("%{} = crt.add.f32! %0, %1 : f32\n", outs_register));
         let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
-        outs_dataview.raw_data
+        outs_dataview.data
     }
 
     Ok(())
@@ -379,17 +371,17 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
 
 
        let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
-       outs_dataview.raw_data.to_pyarray(py)
+       outs_dataview.data.to_pyarray(py)
        //let _data = vec![
-       //    outs_dataview.raw_data[0..3],
-       //    outs_dataview.raw_data[3..6],
-       //    outs_dataview.raw_data[6..9],
+       //    outs_dataview.data[0..3],
+       //    outs_dataview.data[3..6],
+       //    outs_dataview.data[6..9],
        //];
        //_data.to_pyarray(py)
        //
        // let gil = pyo3::Python::acquire_gil();
-       //let outs: &PyArray2<f32> = PyArray2::<f32>::from_vec2(gil.python(), &outs_dataview.raw_data).unwrap();
-       // let outs: &PyArray<f32> = PyArray::<f32>::from_vec(gil.python(), &outs_dataview.raw_data).unwrap();
+       //let outs: &PyArray2<f32> = PyArray2::<f32>::from_vec2(gil.python(), &outs_dataview.data).unwrap();
+       // let outs: &PyArray<f32> = PyArray::<f32>::from_vec(gil.python(), &outs_dataview.data).unwrap();
        // outs
    }
 * */

@@ -13,7 +13,7 @@ use hal::{adapter::Adapter, adapter::MemoryType, buffer, command, memory, pool, 
 use chopper_runtime::prelude::*;
 
 fn test_pressure() {
-    let mut ipt = NewInterpreter::new();
+    let mut ipt = Interpreter::new();
     // ok
     let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
     let status = ipt.mock_operation("%1 = crt.literal.const.f32! 7.4 : f32\n");
@@ -38,7 +38,7 @@ fn test_pressure() {
     for k in 1..500000 {
         let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
         let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
-        if (k % 100 == 0) {
+        if k % 100 == 0 {
             println!("step {}", k);
         }
     }
@@ -47,7 +47,7 @@ fn test_pressure() {
 }
 
 fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
-    let mut ipt = NewInterpreter::new();
+    let mut ipt = Interpreter::new();
     // ok
     let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
     let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
@@ -77,7 +77,7 @@ fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
 }
 
 fn test_mock_run() {
-    let mut ipt = NewInterpreter::new();
+    let mut ipt = Interpreter::new();
     let status = ipt.mock_operation(
         "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
     );
@@ -117,7 +117,7 @@ fn test_mock_run() {
 fn test_bytecode_run() {
     // step 1, init device instance, also in VM instance init part
     // let ist = DeviceInstance::new();
-    let mut ipt = NewInterpreter::new();
+    let mut ipt = Interpreter::new();
 
     let data0 = vec![1.1, 2.2, 3.3];
     let data1 = vec![1.1, 2.2, 3.3];

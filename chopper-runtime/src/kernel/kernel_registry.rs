@@ -11,8 +11,16 @@ use crate::device_context::*;
 use crate::instruction::*;
 
 #[derive(Debug)]
-pub(crate) struct KernelRegistry {
-    executable_cache_table: HashMap<String, KernelByteCode>,
+pub struct KernelRegistry {
+    pub executable_cache_table: HashMap<String, KernelByteCode>,
+}
+
+impl Drop for KernelRegistry {
+    fn drop(&mut self) {
+        unsafe {
+            println!("drop::KernelRegistry");
+        };
+    }
 }
 
 impl KernelRegistry {

@@ -11,16 +11,15 @@ use crate::base::constants::*;
 use crate::base::kernel::*;
 use crate::base::*;
 use crate::buffer_view::*;
-use crate::device_context::new_device_context::NewDeviceContext;
 use crate::device_context::*;
 use crate::instance::*;
 use crate::instruction::*;
 
-// TODO make OpCode and NewFunctor as Trait to ensure pluggability.
-pub(crate) struct NewFunctor {}
+// TODO make OpCode and TensorFunctor as Trait to ensure pluggability.
+pub(crate) struct TensorFunctor {}
 
-impl NewFunctor {
-    pub fn new() -> NewFunctor {
+impl TensorFunctor {
+    pub fn new() -> TensorFunctor {
         return Self {};
     }
 
@@ -49,7 +48,7 @@ impl NewFunctor {
 
     pub fn apply<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        device_context: &mut NewDeviceContext,
+        device_context: &mut DeviceContext,
         mut lhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
         mut rhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
         opcode: OpCode,
