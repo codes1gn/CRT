@@ -6,6 +6,7 @@ use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr, sync
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
 use raptors::prelude::*;
+use tokio::sync::oneshot;
 
 use crate::base::kernel::*;
 use crate::base::*;
@@ -27,8 +28,8 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct HostSession {
-    pub(crate) device_context: DeviceContext,
     pub actor_system: ActorSystemHandle<DeviceContext, TensorView<f32>>,
+    pub async_runtime: tokio::runtime::Runtime,
 }
 
 impl Drop for HostSession {
@@ -51,10 +52,7 @@ macro_rules! build_crt {
 }
 
 impl HostSession {
-    #[tokio::main]
-    pub async fn new() -> HostSession {
-        let mut device_context = DeviceContext::new();
-
+    pub fn new() -> HostSession {
         // init raptors env
         // TODO(debug) fix to allow tracing with vk_device, perhaps backend vulkan uses env_logger
         // this causes conflict
@@ -78,7 +76,6 @@ impl HostSession {
         // };
 
         // perform raptors actions
-        let mut system = build_crt!("Raptors");
         // let system = {
         //     let mut sys_config = SystemConfig::new($name, "info");
         //     let mut sys_builder = SystemBuilder::new();
@@ -92,35 +89,24 @@ impl HostSession {
         // the other works with CPU
         // TODO: add a CPU high perf lib, maybe rayon
         // TODO: maybe remove Clone requirements for type parameter U = TensorView<f32>
-        let msg: TypedMessage<TensorView<f32>> = build_msg!("spawn", 1);
-        system.issue_order(msg).await;
+        //
+
+        let asrt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let syst = asrt.block_on(async {
+            let mut system = build_crt!("Raptors");
+            let msg: TypedMessage<TensorView<f32>> = build_msg!("spawn", 1);
+            system.issue_order(GeneralMessage::Cmd(msg)).await;
+            return system;
+        });
 
         return Self {
-            device_context: device_context,
-            actor_system: system,
+            actor_system: syst,
+            async_runtime: asrt,
         };
-    }
-
-    pub fn init(&mut self) {
-        // TODO support more kernels
-        // TODO get rid of path hardcode by cargo manage datafiles of kernels
-        // let kernel_path = vec![kernel::KERNELPATH];
-        let path = env::current_dir().unwrap();
-        // println!("{}", path.display());
-
-        self.device_context.register_kernels(
-            "/root/project/glsl_src/binary_arithmetic_f32.comp",
-            String::from("binary_arithmetic_f32"),
-        );
-        self.device_context.register_kernels(
-            "/root/project/glsl_src/binary_arithmetic_i32.comp",
-            String::from("binary_arithmetic_i32"),
-        );
-        self.device_context.register_kernels(
-            "/root/project/glsl_src/matrix_multiple_f32.comp",
-            //    "/root/project/chopper/backend-rs/chopper-runtime/src/kernel/glsl_src/matrix_multiple_f32.comp",
-            String::from("matrix_multiple_f32"),
-        );
     }
 
     pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
@@ -133,9 +119,9 @@ impl HostSession {
         // rhs_dataview: UniBuffer<concrete_backend::Backend, T>,
         // ) -> UniBuffer<concrete_backend::Backend, T> {
     ) -> TensorView<T> {
-        self.device_context.device.start_capture();
+        // self.device_context.device.start_capture();
         let outs = self.run::<T>(opcode, lhs_tensor, rhs_tensor);
-        self.device_context.device.stop_capture();
+        // self.device_context.device.stop_capture();
         outs
     }
 
@@ -153,9 +139,11 @@ impl HostSession {
         println!("{:#?}", opmsg);
         // self.actor_system.issue_order(opmsg.clone()).await;
 
-        let mut out_tensor = self
-            .device_context
-            .compute_legacy(lhs_tensor, rhs_tensor, opcode);
+        // let mut out_tensor = self
+        //     .device_context
+        //     .compute_legacy(lhs_tensor, rhs_tensor, opcode);
+        // out_tensor
+        lhs_tensor
 
         // let mut result_buffer =
         //    TensorFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
@@ -166,6 +154,44 @@ impl HostSession {
         // update dataview with new value
         // result_buffer.eval(&self.device_context.device);
         // print outs
+    }
+
+    pub fn run_default(
+        &mut self,
+        opcode: instruction::OpCode,
+        lhs_tensor: TensorView<f32>,
+        rhs_tensor: TensorView<f32>,
+    ) -> TensorView<f32> {
+        let (send, recv) = oneshot::channel();
+        let opmsg = match opcode {
+            instruction::OpCode::ADDF32 => PayloadMessage::ComputeFunctorMsg {
+                op: OpCode::AddOp,
+                lhs: lhs_tensor,
+                rhs: rhs_tensor,
+                respond_to: send,
+            },
+            instruction::OpCode::SUBF32 => PayloadMessage::ComputeFunctorMsg {
+                op: OpCode::SubOp,
+                lhs: lhs_tensor,
+                rhs: rhs_tensor,
+                respond_to: send,
+            },
+            _ => PayloadMessage::ComputeFunctorMsg {
+                op: OpCode::IdentityOp,
+                lhs: lhs_tensor,
+                rhs: rhs_tensor,
+                respond_to: send,
+            },
+        };
+        println!("alpha - {:#?}", opmsg);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(GeneralMessage::Payload(opmsg))
+                .await;
+        });
+
+        let out_tensor = recv.blocking_recv().expect("no result after compute");
+        println!("beta - {:#?}", out_tensor);
         out_tensor
     }
 }

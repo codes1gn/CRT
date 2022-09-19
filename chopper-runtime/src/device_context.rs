@@ -77,9 +77,82 @@ impl ExecutorLike for DeviceContext {
             descriptor_pool: descriptor_pool,
         };
     }
-    fn compute(&self, wkl: Self::TensorType) -> Self::TensorType {
+
+    fn init(&mut self) {
+        // TODO support more kernels
+        // TODO get rid of path hardcode by cargo manage datafiles of kernels
+        // let kernel_path = vec![kernel::KERNELPATH];
+        // let path = env::current_dir().unwrap();
+        // println!("{}", path.display());
+
+        self.register_kernels(
+            "/root/project/glsl_src/binary_arithmetic_f32.comp",
+            String::from("binary_arithmetic_f32"),
+        );
+        self.register_kernels(
+            "/root/project/glsl_src/binary_arithmetic_i32.comp",
+            String::from("binary_arithmetic_i32"),
+        );
+        self.register_kernels(
+            "/root/project/glsl_src/matrix_multiple_f32.comp",
+            //    "/root/project/chopper/backend-rs/chopper-runtime/src/kernel/glsl_src/matrix_multiple_f32.comp",
+            String::from("matrix_multiple_f32"),
+        );
+    }
+
+    fn compute_mock(&mut self, wkl: Self::TensorType) -> Self::TensorType {
         println!("============ on computing =============");
         wkl
+    }
+    fn compute_unary(
+        &mut self,
+        op: raptors::prelude::OpCode,
+        lhs: Self::TensorType,
+    ) -> Self::TensorType {
+        println!("============ on computing unary =============");
+        lhs
+    }
+    fn compute_binary(
+        &mut self,
+        op: raptors::prelude::OpCode,
+        lhs_tensor: Self::TensorType,
+        rhs_tensor: Self::TensorType,
+    ) -> Self::TensorType {
+        println!("============ on computing binary =============");
+        let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, f32>::new(
+            &self.device,
+            &self.device_instance.memory_property().memory_types,
+            lhs_tensor,
+        );
+        let mut rhs_buffer_functor = UniBuffer::<concrete_backend::Backend, f32>::new(
+            &self.device,
+            &self.device_instance.memory_property().memory_types,
+            rhs_tensor,
+        );
+        // TODO refactor with OpCodeLike trait
+        let opkernel = match op {
+            raptors::prelude::OpCode::AddOp => instruction::OpCode::ADDF32,
+            raptors::prelude::OpCode::SubOp => instruction::OpCode::SUBF32,
+            _ => panic!("not implement"),
+        };
+        let mut out_buffer_functor = TensorFunctor::new().apply::<f32>(
+            self,
+            lhs_buffer_functor,
+            rhs_buffer_functor,
+            opkernel,
+        );
+        // TODO-fix destroy memory when compute done, consider keep this in future for fusion
+        // purpose
+        out_buffer_functor.try_drop(&self.device);
+
+        // consume this UniBuffer and wrap a tensorview, before drop UniBuffer, destroy the real
+        // memory
+        let out_tensor = TensorView::<f32>::new(
+            out_buffer_functor.raw_data,
+            ElementType::F32,
+            out_buffer_functor.shape,
+        );
+        out_tensor
     }
 }
 
