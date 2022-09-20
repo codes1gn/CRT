@@ -1,4 +1,5 @@
 use nom::types::CompleteStr;
+use raptors::prelude::OpCodeLike;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -25,6 +26,8 @@ pub enum OpCode {
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
 }
+
+impl OpCodeLike for OpCode {}
 
 impl OpCode {
     pub fn to_kernel_query_entry(&self) -> String {

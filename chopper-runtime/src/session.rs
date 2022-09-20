@@ -15,7 +15,7 @@ use crate::device_context::*;
 use crate::functor::TensorFunctor;
 use crate::functor::*;
 use crate::instance::*;
-use crate::instruction;
+use crate::OpCode;
 
 // TODO-move to interpreter initialization
 use opentelemetry::global;
@@ -28,7 +28,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct HostSession {
-    pub actor_system: ActorSystemHandle<DeviceContext, TensorView<f32>>,
+    pub actor_system: ActorSystemHandle<DeviceContext, TensorView<f32>, OpCode>,
     pub async_runtime: tokio::runtime::Runtime,
 }
 
@@ -46,7 +46,8 @@ macro_rules! build_crt {
         let mut sys_config = SystemConfig::new($name, "info");
         let mut sys_builder = SystemBuilder::new();
         sys_config.set_ranks(0 as usize);
-        let system = sys_builder.build_with_config::<DeviceContext, TensorView<f32>>(sys_config);
+        let system =
+            sys_builder.build_with_config::<DeviceContext, TensorView<f32>, OpCode>(sys_config);
         system
     }};
 }
@@ -111,7 +112,7 @@ impl HostSession {
 
     pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        opcode: instruction::OpCode,
+        opcode: OpCode,
         lhs_tensor: TensorView<T>,
         rhs_tensor: TensorView<T>,
         // TODO-trial lowering UniBuffer range, to make session dev independent
@@ -127,16 +128,16 @@ impl HostSession {
 
     pub fn run<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        opcode: instruction::OpCode,
+        opcode: OpCode,
         lhs_tensor: TensorView<T>,
         rhs_tensor: TensorView<T>,
     ) -> TensorView<T> {
-        let opmsg = match opcode {
-            instruction::OpCode::ADDF32 => build_loadfree_msg!("add-op"),
-            instruction::OpCode::SUBF32 => build_loadfree_msg!("sub-op"),
-            _ => build_loadfree_msg!("identity-op"),
-        };
-        println!("{:#?}", opmsg);
+        // let opmsg = match opcode {
+        //     OpCode::ADDF32 => build_loadfree_msg!("add-op"),
+        //     OpCode::SUBF32 => build_loadfree_msg!("sub-op"),
+        //     _ => build_loadfree_msg!("identity-op"),
+        // };
+        // println!("{:#?}", opmsg);
         // self.actor_system.issue_order(opmsg.clone()).await;
 
         // let mut out_tensor = self
@@ -158,30 +159,16 @@ impl HostSession {
 
     pub fn run_default(
         &mut self,
-        opcode: instruction::OpCode,
+        opcode: OpCode,
         lhs_tensor: TensorView<f32>,
         rhs_tensor: TensorView<f32>,
     ) -> TensorView<f32> {
         let (send, recv) = oneshot::channel();
-        let opmsg = match opcode {
-            instruction::OpCode::ADDF32 => PayloadMessage::ComputeFunctorMsg {
-                op: OpCode::AddOp,
-                lhs: lhs_tensor,
-                rhs: rhs_tensor,
-                respond_to: send,
-            },
-            instruction::OpCode::SUBF32 => PayloadMessage::ComputeFunctorMsg {
-                op: OpCode::SubOp,
-                lhs: lhs_tensor,
-                rhs: rhs_tensor,
-                respond_to: send,
-            },
-            _ => PayloadMessage::ComputeFunctorMsg {
-                op: OpCode::IdentityOp,
-                lhs: lhs_tensor,
-                rhs: rhs_tensor,
-                respond_to: send,
-            },
+        let opmsg = PayloadMessage::ComputeFunctorMsg {
+            op: opcode,
+            lhs: lhs_tensor,
+            rhs: rhs_tensor,
+            respond_to: send,
         };
         println!("alpha - {:#?}", opmsg);
         self.async_runtime.block_on(async {
@@ -211,7 +198,6 @@ mod tests {
     #[test]
     fn test_e2e_add() {
         let mut se = HostSession::new();
-        se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
         let lhs_shape = vec![lhs.len()];
@@ -236,7 +222,7 @@ mod tests {
         //         .memory_types,
         //     rhs_tensor_view,
         // );
-        let opcode = instruction::OpCode::ADDF32;
+        let opcode = OpCode::ADDF32;
         let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
         // let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
         assert_eq!(result_buffer.data, vec!(12.0, 15.0, 20.0));
@@ -245,7 +231,6 @@ mod tests {
     #[test]
     fn test_e2e_sub() {
         let mut se = HostSession::new();
-        se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
         let lhs_shape = vec![lhs.len()];
@@ -253,7 +238,7 @@ mod tests {
         // create lhs dataview
         let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
         let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
-        let opcode = instruction::OpCode::SUBF32;
+        let opcode = OpCode::SUBF32;
         let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
         assert_eq!(result_buffer.data, vec!(-10.0, -11.0, -14.0));
     }
@@ -261,7 +246,6 @@ mod tests {
     #[test]
     fn test_e2e_matmul() {
         let mut se = HostSession::new();
-        se.init();
         let lhs = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let rhs = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
         let lhs_shape = vec![2, 3];
@@ -269,7 +253,7 @@ mod tests {
         //create lhs dataview
         let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
         let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
-        let opcode = instruction::OpCode::MATMULF32;
+        let opcode = OpCode::MATMULF32;
         let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
     }
 }

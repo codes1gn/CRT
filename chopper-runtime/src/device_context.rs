@@ -49,6 +49,7 @@ impl Drop for DeviceContext {
 // kaigao
 impl ExecutorLike for DeviceContext {
     type TensorType = TensorView<f32>;
+    type OpCodeType = instruction::OpCode;
     fn new() -> DeviceContext {
         let mut di = DeviceInstance::new();
         let mut device_and_queue = di.device_and_queue();
@@ -104,17 +105,13 @@ impl ExecutorLike for DeviceContext {
         println!("============ on computing =============");
         wkl
     }
-    fn compute_unary(
-        &mut self,
-        op: raptors::prelude::OpCode,
-        lhs: Self::TensorType,
-    ) -> Self::TensorType {
+    fn compute_unary(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
         println!("============ on computing unary =============");
         lhs
     }
     fn compute_binary(
         &mut self,
-        op: raptors::prelude::OpCode,
+        op: Self::OpCodeType,
         lhs_tensor: Self::TensorType,
         rhs_tensor: Self::TensorType,
     ) -> Self::TensorType {
@@ -129,18 +126,13 @@ impl ExecutorLike for DeviceContext {
             &self.device_instance.memory_property().memory_types,
             rhs_tensor,
         );
-        // TODO refactor with OpCodeLike trait
-        let opkernel = match op {
-            raptors::prelude::OpCode::AddOp => instruction::OpCode::ADDF32,
-            raptors::prelude::OpCode::SubOp => instruction::OpCode::SUBF32,
-            _ => panic!("not implement"),
-        };
-        let mut out_buffer_functor = TensorFunctor::new().apply::<f32>(
-            self,
-            lhs_buffer_functor,
-            rhs_buffer_functor,
-            opkernel,
-        );
+        // let opkernel = match op {
+        //     MockOpCode::AddOp => instruction::OpCode::ADDF32,
+        //     MockOpCode::SubOp => instruction::OpCode::SUBF32,
+        //     _ => panic!("not implement"),
+        // };
+        let mut out_buffer_functor =
+            TensorFunctor::new().apply::<f32>(self, lhs_buffer_functor, rhs_buffer_functor, op);
         // TODO-fix destroy memory when compute done, consider keep this in future for fusion
         // purpose
         out_buffer_functor.try_drop(&self.device);
