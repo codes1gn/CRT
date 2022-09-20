@@ -98,8 +98,8 @@ impl HostSession {
 
         let syst = asrt.block_on(async {
             let mut system = build_crt!("Raptors");
-            let msg: TypedMessage<TensorView<f32>> = build_msg!("spawn", 1);
-            system.issue_order(GeneralMessage::Cmd(msg)).await;
+            let msg: LoadfreeMessage<TensorView<f32>> = build_loadfree_msg!("spawn", 1);
+            system.issue_order(RaptorMessage::LoadfreeMSG(msg)).await;
             return system;
         });
 
@@ -132,9 +132,9 @@ impl HostSession {
         rhs_tensor: TensorView<T>,
     ) -> TensorView<T> {
         let opmsg = match opcode {
-            instruction::OpCode::ADDF32 => build_comp_msg!("add-op"),
-            instruction::OpCode::SUBF32 => build_comp_msg!("sub-op"),
-            _ => build_msg!("identity-op"),
+            instruction::OpCode::ADDF32 => build_loadfree_msg!("add-op"),
+            instruction::OpCode::SUBF32 => build_loadfree_msg!("sub-op"),
+            _ => build_loadfree_msg!("identity-op"),
         };
         println!("{:#?}", opmsg);
         // self.actor_system.issue_order(opmsg.clone()).await;
@@ -186,7 +186,7 @@ impl HostSession {
         println!("alpha - {:#?}", opmsg);
         self.async_runtime.block_on(async {
             self.actor_system
-                .issue_order(GeneralMessage::Payload(opmsg))
+                .issue_order(RaptorMessage::PayloadMSG(opmsg))
                 .await;
         });
 
