@@ -110,54 +110,49 @@ impl HostSession {
         };
     }
 
-    pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
-        &mut self,
-        opcode: OpCode,
-        lhs_tensor: TensorView<T>,
-        rhs_tensor: TensorView<T>,
-        // TODO-trial lowering UniBuffer range, to make session dev independent
-        // lhs_dataview: UniBuffer<concrete_backend::Backend, T>,
-        // rhs_dataview: UniBuffer<concrete_backend::Backend, T>,
-        // ) -> UniBuffer<concrete_backend::Backend, T> {
-    ) -> TensorView<T> {
-        // self.device_context.device.start_capture();
-        let outs = self.run::<T>(opcode, lhs_tensor, rhs_tensor);
-        // self.device_context.device.stop_capture();
-        outs
-    }
+    // pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
+    //     &mut self,
+    //     opcode: OpCode,
+    //     lhs_tensor: TensorView<T>,
+    //     rhs_tensor: TensorView<T>,
+    //     // TODO-trial lowering UniBuffer range, to make session dev independent
+    //     // lhs_dataview: UniBuffer<concrete_backend::Backend, T>,
+    //     // rhs_dataview: UniBuffer<concrete_backend::Backend, T>,
+    //     // ) -> UniBuffer<concrete_backend::Backend, T> {
+    // ) -> TensorView<T> {
+    //     // self.device_context.device.start_capture();
+    //     // let outs = self.run_default(opcode, lhs_tensor, rhs_tensor);
+    //     // self.device_context.device.stop_capture();
+    //     outs
+    // }
 
-    pub fn run<T: SupportedType + std::clone::Clone + std::default::Default>(
+    pub fn run_i32(
         &mut self,
         opcode: OpCode,
-        lhs_tensor: TensorView<T>,
-        rhs_tensor: TensorView<T>,
-    ) -> TensorView<T> {
-        // let opmsg = match opcode {
-        //     OpCode::ADDF32 => build_loadfree_msg!("add-op"),
-        //     OpCode::SUBF32 => build_loadfree_msg!("sub-op"),
-        //     _ => build_loadfree_msg!("identity-op"),
+        lhs_tensor: TensorView<i32>,
+        rhs_tensor: TensorView<i32>,
+    ) -> TensorView<i32> {
+        // let (send, recv) = oneshot::channel();
+        // let opmsg = PayloadMessage::ComputeFunctorMsg {
+        //     op: opcode,
+        //     lhs: lhs_tensor,
+        //     rhs: rhs_tensor,
+        //     respond_to: send,
         // };
-        // println!("{:#?}", opmsg);
-        // self.actor_system.issue_order(opmsg.clone()).await;
+        // info!("alpha - {:#?}", opmsg);
+        // self.async_runtime.block_on(async {
+        //     self.actor_system
+        //         .issue_order(RaptorMessage::PayloadMSG(opmsg))
+        //         .await;
+        // });
 
-        // let mut out_tensor = self
-        //     .device_context
-        //     .compute_legacy(lhs_tensor, rhs_tensor, opcode);
+        // let out_tensor = recv.blocking_recv().expect("no result after compute");
+        // info!("beta - {:#?}", out_tensor);
         // out_tensor
         lhs_tensor
-
-        // let mut result_buffer =
-        //    TensorFunctor::new().apply::<T>(&mut self.device_context, lhs_dataview, rhs_dataview, opcode);
-
-        // clear shader module
-        // self.device_context.device.destroy_shader_module(shader);
-
-        // update dataview with new value
-        // result_buffer.eval(&self.device_context.device);
-        // print outs
     }
 
-    pub fn run_default(
+    pub fn run_f32(
         &mut self,
         opcode: OpCode,
         lhs_tensor: TensorView<f32>,
@@ -170,7 +165,7 @@ impl HostSession {
             rhs: rhs_tensor,
             respond_to: send,
         };
-        println!("alpha - {:#?}", opmsg);
+        info!("alpha - {:#?}", opmsg);
         self.async_runtime.block_on(async {
             self.actor_system
                 .issue_order(RaptorMessage::PayloadMSG(opmsg))
@@ -178,7 +173,7 @@ impl HostSession {
         });
 
         let out_tensor = recv.blocking_recv().expect("no result after compute");
-        println!("beta - {:#?}", out_tensor);
+        info!("beta - {:#?}", out_tensor);
         out_tensor
     }
 }
@@ -223,7 +218,7 @@ mod tests {
         //     rhs_tensor_view,
         // );
         let opcode = OpCode::ADDF32;
-        let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.run_f32(opcode, lhs_tensor_view, rhs_tensor_view);
         // let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
         assert_eq!(result_buffer.data, vec!(12.0, 15.0, 20.0));
     }
@@ -239,7 +234,7 @@ mod tests {
         let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
         let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
         let opcode = OpCode::SUBF32;
-        let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.run_f32(opcode, lhs_tensor_view, rhs_tensor_view);
         assert_eq!(result_buffer.data, vec!(-10.0, -11.0, -14.0));
     }
 
@@ -254,6 +249,6 @@ mod tests {
         let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
         let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
         let opcode = OpCode::MATMULF32;
-        let mut result_buffer = se.benchmark_run(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.run_f32(opcode, lhs_tensor_view, rhs_tensor_view);
     }
 }

@@ -156,7 +156,8 @@ impl VM {
                 let opcode = OpCode::ADDI32;
                 let outs = self
                     .session
-                    .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
+                    .run_i32(opcode, lhs_dataview, rhs_dataview);
+                    // .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
@@ -169,7 +170,7 @@ impl VM {
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = OpCode::ADDF32;
-                let outs = self.session.run_default(opcode, lhs_dataview, rhs_dataview);
+                let outs = self.session.run_f32(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
@@ -185,7 +186,7 @@ impl VM {
                 let opcode = OpCode::SUBI32;
                 let outs = self
                     .session
-                    .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
+                    .run_i32(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
@@ -198,7 +199,7 @@ impl VM {
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = OpCode::SUBF32;
-                let outs = self.session.run_default(opcode, lhs_dataview, rhs_dataview);
+                let outs = self.session.run_f32(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
@@ -215,7 +216,7 @@ impl VM {
                 let opcode = OpCode::MULI32;
                 let outs = self
                     .session
-                    .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
+                    .run_i32(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
@@ -229,7 +230,7 @@ impl VM {
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = OpCode::MULF32;
-                let outs = self.session.run_default(opcode, lhs_dataview, rhs_dataview);
+                let outs = self.session.run_f32(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
@@ -246,7 +247,7 @@ impl VM {
                 let opcode = OpCode::FLOORDIVI32;
                 let outs = self
                     .session
-                    .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
+                    .run_i32(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
@@ -260,7 +261,7 @@ impl VM {
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = OpCode::DIVF32;
-                let outs = self.session.run_default(opcode, lhs_dataview, rhs_dataview);
+                let outs = self.session.run_f32(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
@@ -274,7 +275,7 @@ impl VM {
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = OpCode::MATMULF32;
-                let outs = self.session.run_default(opcode, lhs_dataview, rhs_dataview);
+                let outs = self.session.run_f32(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)

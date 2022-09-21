@@ -115,7 +115,7 @@ impl ExecutorLike for DeviceContext {
         lhs_tensor: Self::TensorType,
         rhs_tensor: Self::TensorType,
     ) -> Self::TensorType {
-        println!("============ on computing binary =============");
+        // println!("============ on computing binary =============");
         let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, f32>::new(
             &self.device,
             &self.device_instance.memory_property().memory_types,
