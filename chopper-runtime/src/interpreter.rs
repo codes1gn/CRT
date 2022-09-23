@@ -207,7 +207,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_i32_literal() {
         let mut ipt = Interpreter::new();
@@ -233,7 +232,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_add_i32() {
         let mut ipt = Interpreter::new();
@@ -257,7 +255,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_sub_i32() {
         let mut ipt = Interpreter::new();
@@ -281,7 +278,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_mul_i32() {
         let mut ipt = Interpreter::new();
@@ -305,7 +301,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_floordiv_i32() {
         let mut ipt = Interpreter::new();
@@ -329,7 +324,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_floordiv_i32_case2() {
         let mut ipt = Interpreter::new();
@@ -445,7 +439,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_binary_add_then_sub_i32() {
         let mut ipt = Interpreter::new();

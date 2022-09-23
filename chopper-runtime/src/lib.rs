@@ -177,8 +177,8 @@ impl CallableModule {
             let status = ipt.run_bytecode(_bytecode_string);
         }
 
-        let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
-        outs_dataview.data.to_pyarray(py)
+        let out_data = ipt.vm.get_fdata(outs_register).to_vec();
+        out_data.to_pyarray(py)
         //let _data = vec![
         //    outs_dataview.data[0..3],
         //    outs_dataview.data[3..6],
@@ -249,9 +249,9 @@ impl CallableModule {
             let status = ipt.run_bytecode(_bytecode_string);
         }
 
-        let lhs_outs = ipt.vm.data_buffer_f32.remove(&lhs_grad).unwrap();
-        let rhs_outs = ipt.vm.data_buffer_f32.remove(&rhs_grad).unwrap();
-        (lhs_outs.data.to_pyarray(py), rhs_outs.data.to_pyarray(py))
+        let lhs_outs = ipt.vm.get_fdata(lhs_grad).to_vec();
+        let rhs_outs = ipt.vm.get_fdata(rhs_grad).to_vec();
+        (lhs_outs.to_pyarray(py), rhs_outs.to_pyarray(py))
     }
 }
 
@@ -322,8 +322,9 @@ fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
             rhs_register
         ));
         let status = ipt.run_bytecode(format!("%{} = crt.add.f32! %0, %1 : f32\n", outs_register));
-        let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
-        outs_dataview.data
+        ipt.vm.get_fdata(outs_register).to_vec()
+        // let outs_dataview = ipt.vm.data_buffer_f32.remove(&outs_register).unwrap();
+        // outs_dataview.data
     }
 
     Ok(())

@@ -28,7 +28,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct HostSession {
-    pub actor_system: ActorSystemHandle<DeviceContext, TensorView<f32>, OpCode>,
+    pub actor_system: ActorSystemHandle<DeviceContext, AllowedTensor, OpCode>,
     pub async_runtime: tokio::runtime::Runtime,
 }
 
@@ -47,7 +47,7 @@ macro_rules! build_crt {
         let mut sys_builder = SystemBuilder::new();
         sys_config.set_ranks(0 as usize);
         let system =
-            sys_builder.build_with_config::<DeviceContext, TensorView<f32>, OpCode>(sys_config);
+            sys_builder.build_with_config::<DeviceContext, AllowedTensor, OpCode>(sys_config);
         system
     }};
 }
@@ -99,7 +99,7 @@ impl HostSession {
 
         let syst = asrt.block_on(async {
             let mut system = build_crt!("Raptors");
-            let msg: LoadfreeMessage<TensorView<f32>> = build_loadfree_msg!("spawn", 1);
+            let msg: LoadfreeMessage<AllowedTensor> = build_loadfree_msg!("spawn", 1);
             system.issue_order(RaptorMessage::LoadfreeMSG(msg)).await;
             return system;
         });
@@ -126,38 +126,12 @@ impl HostSession {
     //     outs
     // }
 
-    pub fn run_i32(
+    pub fn launch_binary_compute(
         &mut self,
         opcode: OpCode,
-        lhs_tensor: TensorView<i32>,
-        rhs_tensor: TensorView<i32>,
-    ) -> TensorView<i32> {
-        // let (send, recv) = oneshot::channel();
-        // let opmsg = PayloadMessage::ComputeFunctorMsg {
-        //     op: opcode,
-        //     lhs: lhs_tensor,
-        //     rhs: rhs_tensor,
-        //     respond_to: send,
-        // };
-        // info!("alpha - {:#?}", opmsg);
-        // self.async_runtime.block_on(async {
-        //     self.actor_system
-        //         .issue_order(RaptorMessage::PayloadMSG(opmsg))
-        //         .await;
-        // });
-
-        // let out_tensor = recv.blocking_recv().expect("no result after compute");
-        // info!("beta - {:#?}", out_tensor);
-        // out_tensor
-        lhs_tensor
-    }
-
-    pub fn run_f32(
-        &mut self,
-        opcode: OpCode,
-        lhs_tensor: TensorView<f32>,
-        rhs_tensor: TensorView<f32>,
-    ) -> TensorView<f32> {
+        lhs_tensor: AllowedTensor,
+        rhs_tensor: AllowedTensor,
+    ) -> AllowedTensor {
         let (send, recv) = oneshot::channel();
         let opmsg = PayloadMessage::ComputeFunctorMsg {
             op: opcode,
@@ -198,8 +172,12 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
-        let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
+        let lhs_tensor_view = AllowedTensor::F32Tensor {
+            data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
+        };
+        let rhs_tensor_view = AllowedTensor::F32Tensor {
+            data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
+        };
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut lhs_dataview = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &se.device_context.device,
@@ -218,9 +196,10 @@ mod tests {
         //     rhs_tensor_view,
         // );
         let opcode = OpCode::ADDF32;
-        let mut result_buffer = se.run_f32(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
         // let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
-        assert_eq!(result_buffer.data, vec!(12.0, 15.0, 20.0));
+        // TODO build helper for query AllowedTensor types
+        // assert_eq!(result_buffer.data, vec!(12.0, 15.0, 20.0));
     }
 
     #[test]
@@ -231,11 +210,15 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
-        let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
+        let lhs_tensor_view = AllowedTensor::F32Tensor {
+            data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
+        };
+        let rhs_tensor_view = AllowedTensor::F32Tensor {
+            data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
+        };
         let opcode = OpCode::SUBF32;
-        let mut result_buffer = se.run_f32(opcode, lhs_tensor_view, rhs_tensor_view);
-        assert_eq!(result_buffer.data, vec!(-10.0, -11.0, -14.0));
+        let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
+        // assert_eq!(result_buffer.data, vec!(-10.0, -11.0, -14.0));
     }
 
     #[test]
@@ -246,9 +229,13 @@ mod tests {
         let lhs_shape = vec![2, 3];
         let rhs_shape = vec![3, 2];
         //create lhs dataview
-        let lhs_tensor_view = TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape);
-        let rhs_tensor_view = TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape);
+        let lhs_tensor_view = AllowedTensor::F32Tensor {
+            data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
+        };
+        let rhs_tensor_view = AllowedTensor::F32Tensor {
+            data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
+        };
         let opcode = OpCode::MATMULF32;
-        let mut result_buffer = se.run_f32(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
     }
 }

@@ -51,6 +51,14 @@ impl<T> TensorView<T> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum AllowedTensor {
+    F32Tensor { data: TensorView<f32> },
+    I32Tensor { data: TensorView<i32> },
+}
+
+impl TensorLike for AllowedTensor {}
+
 #[derive(Debug)]
 pub struct UniBuffer<B: hal::Backend, T> {
     pub host_buffer: Option<NewBufferView<B>>,

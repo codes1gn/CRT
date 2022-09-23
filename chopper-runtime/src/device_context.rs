@@ -48,7 +48,7 @@ impl Drop for DeviceContext {
 
 // kaigao
 impl ExecutorLike for DeviceContext {
-    type TensorType = TensorView<f32>;
+    type TensorType = AllowedTensor;
     type OpCodeType = instruction::OpCode;
     fn new() -> DeviceContext {
         let mut di = DeviceInstance::new();
@@ -101,21 +101,97 @@ impl ExecutorLike for DeviceContext {
         );
     }
 
-    fn compute_mock(&mut self, wkl: Self::TensorType) -> Self::TensorType {
-        println!("============ on computing =============");
+    fn mock_compute(&mut self, wkl: Self::TensorType) -> Self::TensorType {
+        // println!("============ on computing =============");
         wkl
     }
-    fn compute_unary(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
-        println!("============ on computing unary =============");
+
+    fn unary_compute(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
+        // println!("============ on computing unary =============");
         lhs
     }
-    fn compute_binary(
+
+    fn binary_compute(
         &mut self,
         op: Self::OpCodeType,
         lhs_tensor: Self::TensorType,
         rhs_tensor: Self::TensorType,
     ) -> Self::TensorType {
         // println!("============ on computing binary =============");
+        match lhs_tensor {
+            AllowedTensor::F32Tensor { data } => {
+                let lhs_data = data;
+                match rhs_tensor {
+                    AllowedTensor::F32Tensor { data } => {
+                        let rhs_data = data;
+                        return AllowedTensor::F32Tensor {
+                            data: self.binary_compute_f32(op, lhs_data, rhs_data),
+                        };
+                    }
+                    _ => panic!("dtype mismatch"),
+                }
+            }
+            AllowedTensor::I32Tensor { data } => {
+                let lhs_data = data;
+                match rhs_tensor {
+                    AllowedTensor::I32Tensor { data } => {
+                        let rhs_data = data;
+                        return AllowedTensor::I32Tensor {
+                            data: self.binary_compute_i32(op, lhs_data, rhs_data),
+                        };
+                    }
+                    _ => panic!("dtype mismatch"),
+                }
+            }
+            _ => panic!("dtype-comp not implemented"),
+        };
+    }
+}
+
+impl DeviceContext {
+    fn binary_compute_i32(
+        &mut self,
+        op: OpCode,
+        lhs_tensor: TensorView<i32>,
+        rhs_tensor: TensorView<i32>,
+    ) -> TensorView<i32> {
+        // println!("============ on computing binary =============");
+        // default dtype for compute
+        let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, i32>::new(
+            &self.device,
+            &self.device_instance.memory_property().memory_types,
+            lhs_tensor,
+        );
+        let mut rhs_buffer_functor = UniBuffer::<concrete_backend::Backend, i32>::new(
+            &self.device,
+            &self.device_instance.memory_property().memory_types,
+            rhs_tensor,
+        );
+
+        let mut out_buffer_functor =
+            TensorFunctor::new().apply::<i32>(self, lhs_buffer_functor, rhs_buffer_functor, op);
+        // TODO-fix destroy memory when compute done, consider keep this in future for fusion
+        // purpose
+        out_buffer_functor.try_drop(&self.device);
+
+        // consume this UniBuffer and wrap a tensorview, before drop UniBuffer, destroy the real
+        // memory
+        let out_tensor = TensorView::<i32>::new(
+            out_buffer_functor.raw_data,
+            ElementType::I32,
+            out_buffer_functor.shape,
+        );
+        out_tensor
+    }
+
+    fn binary_compute_f32(
+        &mut self,
+        op: OpCode,
+        lhs_tensor: TensorView<f32>,
+        rhs_tensor: TensorView<f32>,
+    ) -> TensorView<f32> {
+        // println!("============ on computing binary =============");
+        // default dtype for compute
         let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, f32>::new(
             &self.device,
             &self.device_instance.memory_property().memory_types,
@@ -126,11 +202,7 @@ impl ExecutorLike for DeviceContext {
             &self.device_instance.memory_property().memory_types,
             rhs_tensor,
         );
-        // let opkernel = match op {
-        //     MockOpCode::AddOp => instruction::OpCode::ADDF32,
-        //     MockOpCode::SubOp => instruction::OpCode::SUBF32,
-        //     _ => panic!("not implement"),
-        // };
+
         let mut out_buffer_functor =
             TensorFunctor::new().apply::<f32>(self, lhs_buffer_functor, rhs_buffer_functor, op);
         // TODO-fix destroy memory when compute done, consider keep this in future for fusion
@@ -146,9 +218,7 @@ impl ExecutorLike for DeviceContext {
         );
         out_tensor
     }
-}
 
-impl DeviceContext {
     pub fn register_kernels(&mut self, file_path: &str, query_entry: String) {
         // glsl_to_spirv, TODO, support more, spv format and readable spirv ir.
         // TODO, read external config of all kernels, and cache it by OpCode
