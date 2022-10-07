@@ -111,12 +111,12 @@ impl HostSession {
     }
 
     // TODO refactor this workaround: config
-    #[cfg(all(not(feature = "mock"), not(feature = "vulkan")))]
+    #[cfg(all(not(feature = "mock"), not(feature = "vulkan"), not(feature = "blas")))]
     pub fn init(&mut self, executor_cnt: usize) {
         panic!("features not set")
     }
 
-    #[cfg(all(feature = "mock", not(feature = "vulkan")))]
+    #[cfg(all(feature = "mock", not(feature = "blas"), not(feature = "vulkan")))]
     pub fn init(&mut self, executor_cnt: usize) {
         // WIP mute vulkan for now, tune with mock system
         let msg1: LoadfreeMessage<ActTensorTypes> =
@@ -128,7 +128,19 @@ impl HostSession {
         })
     }
 
-    #[cfg(all(not(feature = "mock"), feature = "vulkan"))]
+    #[cfg(all(feature = "blas", not(feature = "mock"), not(feature = "vulkan")))]
+    pub fn init(&mut self, executor_cnt: usize) {
+        // WIP mute vulkan for now, tune with mock system
+        let msg1: LoadfreeMessage<ActTensorTypes> =
+            build_loadfree_msg!("spawn", "blas", executor_cnt);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::LoadfreeMSG(msg1))
+                .await;
+        })
+    }
+
+    #[cfg(all(not(feature = "mock"), not(feature = "blas"), feature = "vulkan"))]
     pub fn init(&mut self, executor_cnt: usize) {
         // WIP mute vulkan for now, tune with mock system
         let msg1: LoadfreeMessage<ActTensorTypes> =
