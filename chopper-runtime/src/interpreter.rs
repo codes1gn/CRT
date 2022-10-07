@@ -37,8 +37,8 @@ impl Interpreter {
         self.vm.as_ref_mut().unwrap()
     }
     */
-    pub fn init(&mut self) {
-        self.vm.init();
+    pub fn init(&mut self, executor_cnt: usize) {
+        self.vm.init(executor_cnt);
     }
 
     /// Accepts a hexadecimal string WITHOUT a leading `0x` and returns a Vec of u8
@@ -213,7 +213,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_i32_literal() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         // TODO make runtime check on matching const.i32 and i32 type annotation
         let status = ipt.mock_operation("%17 = crt.literal.const.i32! 13 : i32\n");
@@ -227,7 +227,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_literal() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
         assert_eq!(status.is_ok(), true);
@@ -240,7 +240,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_add_i32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -264,7 +264,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_sub_i32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -288,7 +288,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_mul_i32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -312,7 +312,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_floordiv_i32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -336,7 +336,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_floordiv_i32_case2() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.i32! 7 : i32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
@@ -360,7 +360,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_add_f32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -384,7 +384,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_sub_f32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -408,7 +408,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_mul_f32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -432,7 +432,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_div_f32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
         let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
@@ -456,7 +456,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_binary_add_then_sub_i32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.i32! 3 : i32\n");
         let status = ipt.mock_operation("%7 = crt.literal.const.i32! 2 : i32\n");
@@ -489,7 +489,7 @@ mod tests {
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
         let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn test_mock_bytecode_tensor_add() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation(
             "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
@@ -562,7 +562,7 @@ mod tests {
     #[test]
     fn test_mock_bytecode_tensor_sub() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         let status = ipt.mock_operation(
             "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
@@ -603,7 +603,7 @@ mod tests {
     #[test]
     fn test_mock_bytecode_tensor_matmul() {
         let mut ipt = Interpreter::new();
-        ipt.init();
+        ipt.init(2);
         // ok
         // matmul(3x2, 2x3) => (3x3)
         let status = ipt.mock_operation(

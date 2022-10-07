@@ -1,6 +1,3 @@
-extern crate backend_vulkan as concrete_backend;
-extern crate hal;
-
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -10,10 +7,11 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 use crate::base::constants::*;
 use crate::base::kernel::*;
 use crate::base::*;
-use crate::buffer_view::*;
-use crate::device_context::*;
+use crate::buffer_types::*;
 use crate::instance::*;
 use crate::instruction::*;
+use crate::tensor_types::*;
+use crate::vkgpu_executor::*;
 
 // TODO make OpCode and TensorFunctor as Trait to ensure pluggability.
 pub(crate) struct TensorFunctor {}

@@ -1,6 +1,3 @@
-extern crate backend_vulkan as concrete_backend;
-extern crate hal;
-
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -8,7 +5,8 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 use raptors::prelude::*;
 
 use crate::base::constants::*;
-use crate::device_context::*;
+use crate::tensor_types::*;
+use crate::vkgpu_executor::*;
 
 use crate::base::*;
 
@@ -31,34 +29,6 @@ pub struct DataView<B: hal::Backend, T> {
     pub data_size: usize,
     pub shape: Vec<usize>,
 }
-
-impl<T> TensorLike for TensorView<T> {}
-
-#[derive(Debug, Clone)]
-pub struct TensorView<T> {
-    pub data: Vec<T>,
-    pub dtype: ElementType,
-    pub shape: Vec<usize>,
-}
-
-impl<T> TensorView<T> {
-    pub fn new(data: Vec<T>, dtype: ElementType, shape: Vec<usize>) -> Self {
-        Self {
-            data: data,
-            dtype: dtype,
-            shape: shape,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ActTensorTypes {
-    F32Tensor { data: TensorView<f32> },
-    I32Tensor { data: TensorView<i32> },
-    MockTensor { data: MockTensor },
-}
-
-impl TensorLike for ActTensorTypes {}
 
 #[derive(Debug)]
 pub struct UniBuffer<B: hal::Backend, T> {

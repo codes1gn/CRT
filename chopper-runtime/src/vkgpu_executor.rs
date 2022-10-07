@@ -1,6 +1,3 @@
-extern crate backend_vulkan as concrete_backend;
-extern crate hal;
-
 use std::{borrow::Cow, collections::HashMap, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -8,15 +5,17 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 
 use raptors::prelude::*;
 
+use crate::instruction;
+use crate::instruction::*;
+
 use crate::base::kernel::*;
 use crate::base::*;
-use crate::buffer_view::*;
+use crate::buffer_types::*;
 use crate::functor::TensorFunctor;
 use crate::functor::*;
 use crate::instance::*;
-use crate::instruction;
-use crate::instruction::*;
 use crate::kernel::kernel_registry::KernelRegistry;
+use crate::tensor_types::*;
 
 #[derive(Debug)]
 pub enum ActExecutorTypes {

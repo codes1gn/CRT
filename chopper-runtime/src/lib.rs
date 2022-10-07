@@ -1,59 +1,60 @@
 #[macro_use]
 extern crate nom;
 
-extern crate backend_vulkan as vk_types;
-extern crate hal;
-
 extern crate raptors;
 extern crate transpose;
 
-use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr};
-
+extern crate backend_vulkan as concrete_backend;
+extern crate hal;
 use hal::prelude::*;
 use hal::{adapter::Adapter, adapter::MemoryType, buffer, command, memory, pool, prelude::*, pso};
 
+use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr};
+
 pub mod assembler;
 pub mod base;
+pub mod buffer_types;
 pub mod instruction;
 pub mod interpreter;
+pub mod session;
+pub mod tensor_types;
 pub mod vm;
 
-//pub mod base;
-pub mod buffer_view;
-pub mod device_context;
 pub mod functor;
 pub mod instance;
 pub mod kernel;
-pub mod session;
+pub mod vkgpu_executor;
 
-use instance::*;
-use interpreter::*;
+pub mod prelude {
+    pub use crate::base::constants::*;
+    pub use crate::buffer_types::*;
+    pub use crate::instruction::*;
+    pub use crate::interpreter::*;
+    pub use crate::session::*;
+    pub use crate::tensor_types::*;
+
+    pub use crate::instance::*;
+    pub use crate::vkgpu_executor::*;
+}
 
 use base::constants::*;
-use buffer_view::*;
-use device_context::*;
+use buffer_types::*;
+#[cfg(feature = "vulkan")]
+use instance::*;
 use instruction::*;
-use session::*;
-
+use interpreter::*;
 use numpy::ndarray::{array, ArrayD, ArrayViewD, ArrayViewMutD};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayDyn, PyReadonlyArrayDyn, ToPyArray};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
 use pyo3::wrap_pyfunction;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
-
+use session::*;
+use tensor_types::*;
 use transpose::*;
+use vkgpu_executor::*;
 
-pub mod prelude {
-    pub use crate::base::constants::*;
-    pub use crate::buffer_view::*;
-    pub use crate::device_context::*;
-    pub use crate::instance::*;
-    pub use crate::instruction::*;
-    pub use crate::interpreter::*;
-    pub use crate::session::*;
-}
-
+#[cfg(feature = "vulkan")]
 #[pyclass(name = "CallableModule")]
 pub struct CallableModule {
     // We use `#[pyo3(get)]` so that python can read the count but not mutate it.
@@ -63,6 +64,7 @@ pub struct CallableModule {
 }
 
 // TODO hardcoded with explictiy PyArray2 types, consider PyTuple or other way to accept variadic
+#[cfg(feature = "vulkan")]
 fn get_workaround_forward_bytecodes(kernel_option: &str) -> Vec<String> {
     let mut bc_array: Vec<String> = vec![];
 
@@ -86,6 +88,7 @@ fn get_workaround_forward_bytecodes(kernel_option: &str) -> Vec<String> {
 }
 
 // TODO hardcoded with explictiy PyArray2 types, consider PyTuple or other way to accept variadic
+#[cfg(feature = "vulkan")]
 fn get_workaround_backward_bytecodes(kernel_option: &str) -> Vec<String> {
     let mut bc_array: Vec<String> = vec![];
 
@@ -117,6 +120,7 @@ fn get_workaround_backward_bytecodes(kernel_option: &str) -> Vec<String> {
     bc_array
 }
 
+#[cfg(feature = "vulkan")]
 #[pymethods]
 impl CallableModule {
     // Note that we don't validate whether `wraps` is actually callable.
@@ -255,6 +259,7 @@ impl CallableModule {
     }
 }
 
+#[cfg(feature = "vulkan")]
 #[pymodule]
 fn Runtime(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<DeviceInstance>()?;

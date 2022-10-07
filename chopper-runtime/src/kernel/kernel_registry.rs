@@ -1,15 +1,14 @@
-extern crate backend_vulkan as concrete_backend;
-extern crate hal;
-
 use std::collections::HashMap;
 
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
 
 use crate::base::kernel::*;
-use crate::device_context::*;
 use crate::instruction::*;
+use crate::vkgpu_executor::*;
 
+// TODO move all vulkan features into vulkan_device folder
+// then simplify this feature config with lib.rs
 #[derive(Debug)]
 pub struct KernelRegistry {
     pub executable_cache_table: HashMap<String, KernelByteCode>,

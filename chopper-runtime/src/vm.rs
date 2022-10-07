@@ -1,5 +1,3 @@
-extern crate backend_vulkan as concrete_backend;
-
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -9,9 +7,10 @@ use crate::base::errors::RuntimeStatusError;
 use crate::base::*;
 use crate::instruction::OpCode;
 
-use crate::buffer_view::*;
+use crate::buffer_types::*;
 use crate::instance::*;
 use crate::session::*;
+use crate::tensor_types::*;
 
 #[derive(Debug)]
 pub struct VM {
@@ -53,8 +52,8 @@ impl VM {
         }
     }
 
-    pub fn init(&mut self) {
-        self.session.init();
+    pub fn init(&mut self, executor_cnt: usize) {
+        self.session.init(executor_cnt);
     }
 
     fn fetch_instruction(&mut self) -> Result<OpCode, EmptyCmdBufferError> {
@@ -459,7 +458,7 @@ mod tests {
     #[test]
     fn test_halt_step() {
         let mut vm = VM::new();
-        vm.init();
+        vm.init(2);
         vm.command_buffer = vec![0, 0, 0];
         let exit_code = vm.run_once();
         assert_eq!(exit_code.is_ok(), true);
@@ -471,7 +470,7 @@ mod tests {
     #[test]
     fn test_vm_dummy() {
         let mut vm = VM::new();
-        vm.init();
+        vm.init(2);
         vm.command_buffer = vec![];
         let exit_code = vm.run();
         assert_eq!(exit_code.is_ok(), true);
@@ -482,7 +481,7 @@ mod tests {
     fn test_vm_illegal() {
         let mut vm = VM::new();
         vm.command_buffer = vec![255];
-        vm.init();
+        vm.init(2);
         let exit_code = vm.run();
         assert_eq!(exit_code.is_ok(), false);
         assert_eq!(vm.program_counter, 1);

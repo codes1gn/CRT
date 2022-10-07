@@ -1,6 +1,3 @@
-extern crate backend_vulkan as concrete_backend;
-extern crate hal;
-
 use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -10,11 +7,12 @@ use tokio::sync::oneshot;
 
 use crate::base::kernel::*;
 use crate::base::*;
-use crate::buffer_view::*;
-use crate::device_context::*;
+use crate::buffer_types::*;
 use crate::functor::TensorFunctor;
 use crate::functor::*;
 use crate::instance::*;
+use crate::tensor_types::*;
+use crate::vkgpu_executor::*;
 use crate::OpCode;
 
 // TODO-move to interpreter initialization
@@ -75,7 +73,7 @@ impl HostSession {
         //         .unwrap();
         // } else {
         //     //tracing_subscriber::fmt::try_init().unwrap();
-        //     env_logger::init();
+        //     env_logger.init();
         // };
 
         // perform raptors actions
@@ -112,19 +110,51 @@ impl HostSession {
         };
     }
 
-    pub fn init(&mut self) {
+    // TODO refactor this workaround: config
+    #[cfg(all(not(feature = "mock"), not(feature = "vulkan")))]
+    pub fn init(&mut self, executor_cnt: usize) {
+        panic!("features not set")
+    }
+
+    #[cfg(all(feature = "mock", not(feature = "vulkan")))]
+    pub fn init(&mut self, executor_cnt: usize) {
         // WIP mute vulkan for now, tune with mock system
-        // let msg: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "vulkan", 1);
-        let msg1: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "mock", 2);
-        // let msg2: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "vulkan", 1);
-        // panic!("{:#?}", msg);
+        let msg1: LoadfreeMessage<ActTensorTypes> =
+            build_loadfree_msg!("spawn", "mock", executor_cnt);
         self.async_runtime.block_on(async {
             self.actor_system
                 .issue_order(RaptorMessage::LoadfreeMSG(msg1))
                 .await;
-            // self.actor_system
-            //     .issue_order(RaptorMessage::LoadfreeMSG(msg2))
-            //     .await;
+        })
+    }
+
+    #[cfg(all(not(feature = "mock"), feature = "vulkan"))]
+    pub fn init(&mut self, executor_cnt: usize) {
+        // WIP mute vulkan for now, tune with mock system
+        let msg1: LoadfreeMessage<ActTensorTypes> =
+            build_loadfree_msg!("spawn", "vulkan", executor_cnt);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::LoadfreeMSG(msg1))
+                .await;
+        })
+    }
+
+    #[cfg(all(feature = "mock", feature = "vulkan"))]
+    pub fn init(&mut self, executor_cnt: usize) {
+        // WIP mute vulkan for now, tune with mock system
+        // TODO need fix, how to sort out the correct proposition between two type of backends
+        let msg1: LoadfreeMessage<ActTensorTypes> =
+            build_loadfree_msg!("spawn", "mock", executor_cnt);
+        let msg2: LoadfreeMessage<ActTensorTypes> =
+            build_loadfree_msg!("spawn", "vulkan", executor_cnt);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::LoadfreeMSG(msg1))
+                .await;
+            self.actor_system
+                .issue_order(RaptorMessage::LoadfreeMSG(msg2))
+                .await;
         })
     }
 
@@ -185,7 +215,7 @@ mod tests {
     #[test]
     fn test_e2e_add() {
         let mut se = HostSession::new();
-        se.init();
+        se.init(2);
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
         let lhs_shape = vec![lhs.len()];
@@ -224,7 +254,7 @@ mod tests {
     #[test]
     fn test_e2e_sub() {
         let mut se = HostSession::new();
-        se.init();
+        se.init(2);
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
         let lhs_shape = vec![lhs.len()];
@@ -244,7 +274,7 @@ mod tests {
     #[test]
     fn test_e2e_matmul() {
         let mut se = HostSession::new();
-        se.init();
+        se.init(2);
         let lhs = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let rhs = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
         let lhs_shape = vec![2, 3];

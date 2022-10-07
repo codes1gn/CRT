@@ -1,6 +1,3 @@
-extern crate backend_vulkan as concrete_backend;
-extern crate hal;
-
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use hal::prelude::*;
@@ -108,7 +105,6 @@ impl Drop for DeviceInstance {
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
