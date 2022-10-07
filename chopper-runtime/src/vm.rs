@@ -35,7 +35,7 @@ pub struct VM {
 impl Drop for VM {
     fn drop(&mut self) {
         unsafe {
-            println!("drop VM");
+            println!("CRT-VM dropping");
         };
     }
 }
@@ -51,6 +51,10 @@ impl VM {
             data_buffer_f32: HashMap::new(),
             data_buffer_i32: HashMap::new(),
         }
+    }
+
+    pub fn init(&mut self) {
+        self.session.init();
     }
 
     fn fetch_instruction(&mut self) -> Result<OpCode, EmptyCmdBufferError> {
@@ -455,6 +459,7 @@ mod tests {
     #[test]
     fn test_halt_step() {
         let mut vm = VM::new();
+        vm.init();
         vm.command_buffer = vec![0, 0, 0];
         let exit_code = vm.run_once();
         assert_eq!(exit_code.is_ok(), true);
@@ -466,6 +471,7 @@ mod tests {
     #[test]
     fn test_vm_dummy() {
         let mut vm = VM::new();
+        vm.init();
         vm.command_buffer = vec![];
         let exit_code = vm.run();
         assert_eq!(exit_code.is_ok(), true);
@@ -476,6 +482,7 @@ mod tests {
     fn test_vm_illegal() {
         let mut vm = VM::new();
         vm.command_buffer = vec![255];
+        vm.init();
         let exit_code = vm.run();
         assert_eq!(exit_code.is_ok(), false);
         assert_eq!(vm.program_counter, 1);

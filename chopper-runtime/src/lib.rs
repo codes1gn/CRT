@@ -50,8 +50,8 @@ pub mod prelude {
     pub use crate::device_context::*;
     pub use crate::instance::*;
     pub use crate::instruction::*;
-    pub use crate::interpreter::Interpreter;
-    pub use crate::session::HostSession;
+    pub use crate::interpreter::*;
+    pub use crate::session::*;
 }
 
 #[pyclass(name = "CallableModule")]

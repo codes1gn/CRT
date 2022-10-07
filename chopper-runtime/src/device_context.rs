@@ -19,6 +19,90 @@ use crate::instruction::*;
 use crate::kernel::kernel_registry::KernelRegistry;
 
 #[derive(Debug)]
+pub enum ActExecutorTypes {
+    DeviceContext(DeviceContext),
+}
+
+impl ExecutorLike for ActExecutorTypes {
+    type TensorType = ActTensorTypes;
+    type OpCodeType = instruction::OpCode;
+    fn new_with_typeid(typeid: usize) -> ActExecutorTypes {
+        match typeid {
+            1 => ActExecutorTypes::DeviceContext(DeviceContext::new()),
+            _ => panic!("not registered backend typeid"),
+        }
+    }
+
+    fn init(&mut self) {
+
+        // self.register_kernels(
+        //     "/root/project/glsl_src/binary_arithmetic_f32.comp",
+        //     String::from("binary_arithmetic_f32"),
+        // );
+        // self.register_kernels(
+        //     "/root/project/glsl_src/binary_arithmetic_i32.comp",
+        //     String::from("binary_arithmetic_i32"),
+        // );
+        // self.register_kernels(
+        //     "/root/project/glsl_src/matrix_multiple_f32.comp",
+        //     //    "/root/project/chopper/backend-rs/chopper-runtime/src/kernel/glsl_src/matrix_multiple_f32.comp",
+        //     String::from("matrix_multiple_f32"),
+        // );
+    }
+
+    fn mock_compute(&mut self, in_tensor: Self::TensorType) -> Self::TensorType {
+        // println!("============ on computing =============");
+        in_tensor
+    }
+
+    fn unary_compute(
+        &mut self,
+        op: Self::OpCodeType,
+        in_tensor: Self::TensorType,
+    ) -> Self::TensorType {
+        // println!("============ on computing unary =============");
+        in_tensor
+    }
+
+    fn binary_compute(
+        &mut self,
+        op: Self::OpCodeType,
+        lhs_tensor: Self::TensorType,
+        rhs_tensor: Self::TensorType,
+    ) -> Self::TensorType {
+        // println!("============ on computing binary =============");
+        // match lhs_tensor {
+        //     ActTensorTypes::F32Tensor { data } => {
+        //         let lhs_data = data;
+        //         match rhs_tensor {
+        //             ActTensorTypes::F32Tensor { data } => {
+        //                 let rhs_data = data;
+        //                 return ActTensorTypes::F32Tensor {
+        //                     data: self.binary_compute_f32(op, lhs_data, rhs_data),
+        //                 };
+        //             }
+        //             _ => panic!("dtype mismatch"),
+        //         }
+        //     }
+        //     ActTensorTypes::I32Tensor { data } => {
+        //         let lhs_data = data;
+        //         match rhs_tensor {
+        //             ActTensorTypes::I32Tensor { data } => {
+        //                 let rhs_data = data;
+        //                 return ActTensorTypes::I32Tensor {
+        //                     data: self.binary_compute_i32(op, lhs_data, rhs_data),
+        //                 };
+        //             }
+        //             _ => panic!("dtype mismatch"),
+        //         }
+        //     }
+        //     _ => panic!("dtype-comp not implemented"),
+        // };
+        lhs_tensor
+    }
+}
+
+#[derive(Debug)]
 pub struct DeviceContext {
     // TODO refactor into kernel_registry
     pub kernel_registry: KernelRegistry,
@@ -47,11 +131,112 @@ impl Drop for DeviceContext {
 }
 
 // kaigao
-impl ExecutorLike for DeviceContext {
-    type TensorType = ActTensorTypes;
-    type OpCodeType = instruction::OpCode;
-    fn new() -> DeviceContext {
+// WIP impl ExecutorLike for DeviceContext {
+// WIP     type TensorType = ActTensorTypes;
+// WIP     type OpCodeType = instruction::OpCode;
+// WIP     fn new() -> DeviceContext {
+// WIP         let mut di = DeviceInstance::new();
+// WIP         let mut device_and_queue = di.device_and_queue();
+// WIP         let mut descriptor_pool = unsafe {
+// WIP             device_and_queue.device.create_descriptor_pool(
+// WIP                 100, // TODO count of desc sets which below max_sets
+// WIP                 iter::once(pso::DescriptorRangeDesc {
+// WIP                     ty: pso::DescriptorType::Buffer {
+// WIP                         ty: pso::BufferDescriptorType::Storage { read_only: false },
+// WIP                         format: pso::BufferDescriptorFormat::Structured {
+// WIP                             dynamic_offset: false,
+// WIP                         },
+// WIP                     },
+// WIP                     count: 1,
+// WIP                 }),
+// WIP                 pso::DescriptorPoolCreateFlags::empty(),
+// WIP             )
+// WIP         }
+// WIP         .expect("Can't create descriptor pool");
+// WIP         return Self {
+// WIP             device_instance: di,
+// WIP             kernel_registry: KernelRegistry::new(),
+// WIP             //device_and_queue: device_and_queue,
+// WIP             device: device_and_queue.device,
+// WIP             queue_groups: device_and_queue.queue_groups,
+// WIP             descriptor_pool: descriptor_pool,
+// WIP         };
+// WIP     }
+// WIP
+// WIP     fn init(&mut self) {
+// WIP         // TODO support more kernels
+// WIP         // TODO get rid of path hardcode by cargo manage datafiles of kernels
+// WIP         // let kernel_path = vec![kernel::KERNELPATH];
+// WIP         // let path = env::current_dir().unwrap();
+// WIP         // println!("{}", path.display());
+// WIP
+// WIP         self.register_kernels(
+// WIP             "/root/project/glsl_src/binary_arithmetic_f32.comp",
+// WIP             String::from("binary_arithmetic_f32"),
+// WIP         );
+// WIP         self.register_kernels(
+// WIP             "/root/project/glsl_src/binary_arithmetic_i32.comp",
+// WIP             String::from("binary_arithmetic_i32"),
+// WIP         );
+// WIP         self.register_kernels(
+// WIP             "/root/project/glsl_src/matrix_multiple_f32.comp",
+// WIP             //    "/root/project/chopper/backend-rs/chopper-runtime/src/kernel/glsl_src/matrix_multiple_f32.comp",
+// WIP             String::from("matrix_multiple_f32"),
+// WIP         );
+// WIP     }
+// WIP
+// WIP     fn mock_compute(&mut self, wkl: Self::TensorType) -> Self::TensorType {
+// WIP         // println!("============ on computing =============");
+// WIP         wkl
+// WIP     }
+// WIP
+// WIP     fn unary_compute(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
+// WIP         // println!("============ on computing unary =============");
+// WIP         lhs
+// WIP     }
+// WIP
+// WIP     fn binary_compute(
+// WIP         &mut self,
+// WIP         op: Self::OpCodeType,
+// WIP         lhs_tensor: Self::TensorType,
+// WIP         rhs_tensor: Self::TensorType,
+// WIP     ) -> Self::TensorType {
+// WIP         // println!("============ on computing binary =============");
+// WIP         match lhs_tensor {
+// WIP             ActTensorTypes::F32Tensor { data } => {
+// WIP                 let lhs_data = data;
+// WIP                 match rhs_tensor {
+// WIP                     ActTensorTypes::F32Tensor { data } => {
+// WIP                         let rhs_data = data;
+// WIP                         return ActTensorTypes::F32Tensor {
+// WIP                             data: self.binary_compute_f32(op, lhs_data, rhs_data),
+// WIP                         };
+// WIP                     }
+// WIP                     _ => panic!("dtype mismatch"),
+// WIP                 }
+// WIP             }
+// WIP             ActTensorTypes::I32Tensor { data } => {
+// WIP                 let lhs_data = data;
+// WIP                 match rhs_tensor {
+// WIP                     ActTensorTypes::I32Tensor { data } => {
+// WIP                         let rhs_data = data;
+// WIP                         return ActTensorTypes::I32Tensor {
+// WIP                             data: self.binary_compute_i32(op, lhs_data, rhs_data),
+// WIP                         };
+// WIP                     }
+// WIP                     _ => panic!("dtype mismatch"),
+// WIP                 }
+// WIP             }
+// WIP             _ => panic!("dtype-comp not implemented"),
+// WIP         };
+// WIP     }
+// WIP }
+
+impl DeviceContext {
+    pub fn new() -> DeviceContext {
+        println!(" >>> Trying to Init-VkDevice, if panick here, no VkDevice on this machine");
         let mut di = DeviceInstance::new();
+        println!("finish to Init-VkDevice");
         let mut device_and_queue = di.device_and_queue();
         let mut descriptor_pool = unsafe {
             device_and_queue.device.create_descriptor_pool(
@@ -79,76 +264,6 @@ impl ExecutorLike for DeviceContext {
         };
     }
 
-    fn init(&mut self) {
-        // TODO support more kernels
-        // TODO get rid of path hardcode by cargo manage datafiles of kernels
-        // let kernel_path = vec![kernel::KERNELPATH];
-        // let path = env::current_dir().unwrap();
-        // println!("{}", path.display());
-
-        self.register_kernels(
-            "/root/project/glsl_src/binary_arithmetic_f32.comp",
-            String::from("binary_arithmetic_f32"),
-        );
-        self.register_kernels(
-            "/root/project/glsl_src/binary_arithmetic_i32.comp",
-            String::from("binary_arithmetic_i32"),
-        );
-        self.register_kernels(
-            "/root/project/glsl_src/matrix_multiple_f32.comp",
-            //    "/root/project/chopper/backend-rs/chopper-runtime/src/kernel/glsl_src/matrix_multiple_f32.comp",
-            String::from("matrix_multiple_f32"),
-        );
-    }
-
-    fn mock_compute(&mut self, wkl: Self::TensorType) -> Self::TensorType {
-        // println!("============ on computing =============");
-        wkl
-    }
-
-    fn unary_compute(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
-        // println!("============ on computing unary =============");
-        lhs
-    }
-
-    fn binary_compute(
-        &mut self,
-        op: Self::OpCodeType,
-        lhs_tensor: Self::TensorType,
-        rhs_tensor: Self::TensorType,
-    ) -> Self::TensorType {
-        // println!("============ on computing binary =============");
-        match lhs_tensor {
-            ActTensorTypes::F32Tensor { data } => {
-                let lhs_data = data;
-                match rhs_tensor {
-                    ActTensorTypes::F32Tensor { data } => {
-                        let rhs_data = data;
-                        return ActTensorTypes::F32Tensor {
-                            data: self.binary_compute_f32(op, lhs_data, rhs_data),
-                        };
-                    }
-                    _ => panic!("dtype mismatch"),
-                }
-            }
-            ActTensorTypes::I32Tensor { data } => {
-                let lhs_data = data;
-                match rhs_tensor {
-                    ActTensorTypes::I32Tensor { data } => {
-                        let rhs_data = data;
-                        return ActTensorTypes::I32Tensor {
-                            data: self.binary_compute_i32(op, lhs_data, rhs_data),
-                        };
-                    }
-                    _ => panic!("dtype mismatch"),
-                }
-            }
-            _ => panic!("dtype-comp not implemented"),
-        };
-    }
-}
-
-impl DeviceContext {
     fn binary_compute_i32(
         &mut self,
         op: OpCode,

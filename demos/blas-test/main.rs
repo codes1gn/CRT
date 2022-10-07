@@ -12,6 +12,7 @@ fn add_test() {
     // step 1, init device instance, also in VM instance init part
     // let ist = DeviceInstance::new();
     let mut ipt = Interpreter::new();
+    ipt.init();
 
     // let data0 = vec![1.1, 2.2, 3.3];
     // let data1 = vec![1.1, 2.2, 3.3];

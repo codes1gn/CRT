@@ -28,14 +28,15 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct HostSession {
-    pub actor_system: ActorSystemHandle<DeviceContext, ActTensorTypes, OpCode>,
+    pub actor_system: ActorSystemHandle<ActExecutorTypes, ActTensorTypes, OpCode>,
+    // WIP pub actor_system: ActorSystemHandle<DeviceContext, ActTensorTypes, OpCode>,
     pub async_runtime: tokio::runtime::Runtime,
 }
 
 impl Drop for HostSession {
     fn drop(&mut self) {
         unsafe {
-            println!("drop HostSession");
+            println!("CRT-HostSession dropping");
         };
     }
 }
@@ -47,7 +48,8 @@ macro_rules! build_crt {
         let mut sys_builder = SystemBuilder::new();
         sys_config.set_ranks(0 as usize);
         let system =
-            sys_builder.build_with_config::<DeviceContext, ActTensorTypes, OpCode>(sys_config);
+            sys_builder.build_with_config::<ActExecutorTypes, ActTensorTypes, OpCode>(sys_config);
+        // WIP sys_builder.build_with_config::<DeviceContext, ActTensorTypes, OpCode>(sys_config);
         system
     }};
 }
@@ -101,8 +103,6 @@ impl HostSession {
             let mut system = build_crt!("Raptors");
             // TODO move this init out of new with init: with config setting (num of each type of
             // devices)
-            let msg: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", 1);
-            system.issue_order(RaptorMessage::LoadfreeMSG(msg)).await;
             return system;
         });
 
@@ -110,6 +110,18 @@ impl HostSession {
             actor_system: syst,
             async_runtime: asrt,
         };
+    }
+
+    pub fn init(&mut self) {
+        // WIP mute vulkan for now, tune with mock system
+        // let msg: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "vulkan", 1);
+        let msg: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "mock", 1);
+        // panic!("{:#?}", msg);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::LoadfreeMSG(msg))
+                .await;
+        })
     }
 
     // pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
@@ -169,6 +181,7 @@ mod tests {
     #[test]
     fn test_e2e_add() {
         let mut se = HostSession::new();
+        se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
         let lhs_shape = vec![lhs.len()];
@@ -207,6 +220,7 @@ mod tests {
     #[test]
     fn test_e2e_sub() {
         let mut se = HostSession::new();
+        se.init();
         let lhs = vec![1.0, 2.0, 3.0];
         let rhs = vec![11.0, 13.0, 17.0];
         let lhs_shape = vec![lhs.len()];
@@ -226,6 +240,7 @@ mod tests {
     #[test]
     fn test_e2e_matmul() {
         let mut se = HostSession::new();
+        se.init();
         let lhs = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let rhs = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
         let lhs_shape = vec![2, 3];
