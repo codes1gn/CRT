@@ -29,7 +29,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 #[derive(Debug)]
 pub struct HostSession {
     pub actor_system: ActorSystemHandle<ActExecutorTypes, ActTensorTypes, OpCode>,
-    // WIP pub actor_system: ActorSystemHandle<DeviceContext, ActTensorTypes, OpCode>,
+    // WIP pub actor_system: ActorSystemHandle<VkGPUExecutor, ActTensorTypes, OpCode>,
     pub async_runtime: tokio::runtime::Runtime,
 }
 
@@ -49,7 +49,7 @@ macro_rules! build_crt {
         sys_config.set_ranks(0 as usize);
         let system =
             sys_builder.build_with_config::<ActExecutorTypes, ActTensorTypes, OpCode>(sys_config);
-        // WIP sys_builder.build_with_config::<DeviceContext, ActTensorTypes, OpCode>(sys_config);
+        // WIP sys_builder.build_with_config::<VkGPUExecutor, ActTensorTypes, OpCode>(sys_config);
         system
     }};
 }
@@ -83,7 +83,7 @@ impl HostSession {
         //     let mut sys_config = SystemConfig::new($name, "info");
         //     let mut sys_builder = SystemBuilder::new();
         //     sys_config.set_ranks(0 as usize);
-        //     let system = sys_builder.build_with_config::<Executor, Workload>(sys_config);
+        //     let system = sys_builder.build_with_config::<MockExecutor, MockTensor>(sys_config);
         //     system
         // };
         //
@@ -115,12 +115,16 @@ impl HostSession {
     pub fn init(&mut self) {
         // WIP mute vulkan for now, tune with mock system
         // let msg: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "vulkan", 1);
-        let msg: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "mock", 1);
+        let msg1: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "mock", 2);
+        // let msg2: LoadfreeMessage<ActTensorTypes> = build_loadfree_msg!("spawn", "vulkan", 1);
         // panic!("{:#?}", msg);
         self.async_runtime.block_on(async {
             self.actor_system
-                .issue_order(RaptorMessage::LoadfreeMSG(msg))
+                .issue_order(RaptorMessage::LoadfreeMSG(msg1))
                 .await;
+            // self.actor_system
+            //     .issue_order(RaptorMessage::LoadfreeMSG(msg2))
+            //     .await;
         })
     }
 

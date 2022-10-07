@@ -70,7 +70,7 @@ impl Functor {
 
     pub fn apply<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        device_context: &mut DeviceContext,
+        device_context: &mut VkGPUExecutor,
         device_instance_ref: &DeviceInstance,
         lhs_buffer_functor: DataView<concrete_backend::Backend, T>,
         rhs_buffer_functor: DataView<concrete_backend::Backend, T>,

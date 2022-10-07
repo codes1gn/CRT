@@ -55,6 +55,7 @@ impl<T> TensorView<T> {
 pub enum ActTensorTypes {
     F32Tensor { data: TensorView<f32> },
     I32Tensor { data: TensorView<i32> },
+    MockTensor { data: MockTensor },
 }
 
 impl TensorLike for ActTensorTypes {}

@@ -48,7 +48,7 @@ impl TensorFunctor {
 
     pub fn apply<T: SupportedType + std::clone::Clone + std::default::Default>(
         &mut self,
-        device_context: &mut DeviceContext,
+        device_context: &mut VkGPUExecutor,
         mut lhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
         mut rhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
         opcode: OpCode,

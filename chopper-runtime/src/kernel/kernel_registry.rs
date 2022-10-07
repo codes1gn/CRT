@@ -39,7 +39,7 @@ impl KernelRegistry {
         self.executable_cache_table.insert(query_entry, kernel);
     }
 
-    pub fn dispatch_kernel(&self, dc: &DeviceContext, op: OpCode, query_entry: String) -> Kernel {
+    pub fn dispatch_kernel(&self, dc: &VkGPUExecutor, op: OpCode, query_entry: String) -> Kernel {
         let shader = unsafe {
             dc.device
                 .create_shader_module(self.query_kernel_cache(op, query_entry))
