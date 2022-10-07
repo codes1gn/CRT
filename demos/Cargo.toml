@@ -6,6 +6,9 @@ publish = false
 workspace = ".."
 edition = "2021"
 
+[[bin]]
+name = "blastest"
+path = "blas-test/main.rs"
 
 [[bin]]
 name = "crt_test"

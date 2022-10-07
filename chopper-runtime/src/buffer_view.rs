@@ -52,12 +52,12 @@ impl<T> TensorView<T> {
 }
 
 #[derive(Debug, Clone)]
-pub enum AllowedTensor {
+pub enum ActTensorTypes {
     F32Tensor { data: TensorView<f32> },
     I32Tensor { data: TensorView<i32> },
 }
 
-impl TensorLike for AllowedTensor {}
+impl TensorLike for ActTensorTypes {}
 
 #[derive(Debug)]
 pub struct UniBuffer<B: hal::Backend, T> {

@@ -25,9 +25,10 @@ pub struct VM {
     // to allow new without explicit value of Session, thus not borrow a moved
     // value -> device instance
     // pub data_buffer_f32: HashMap<usize, UniBuffer<concrete_backend::Backend, f32>>,
-    pub data_buffer_f32: HashMap<usize, AllowedTensor>,
+    pub data_buffer_f32: HashMap<usize, ActTensorTypes>,
     // pub data_buffer_i32: HashMap<usize, UniBuffer<concrete_backend::Backend, i32>>,
-    pub data_buffer_i32: HashMap<usize, AllowedTensor>,
+    // TODO maybe remove
+    pub data_buffer_i32: HashMap<usize, ActTensorTypes>,
     session: HostSession,
 }
 
@@ -340,7 +341,7 @@ impl VM {
 
     pub fn get_idata(&self, index: usize) -> &Vec<i32> {
         match &self.data_buffer_i32[&index] {
-            AllowedTensor::I32Tensor { data } => &data.data,
+            ActTensorTypes::I32Tensor { data } => &data.data,
             _ => panic!("not support int types"),
         }
     }
@@ -349,7 +350,7 @@ impl VM {
     pub fn push_data_buffer_i32(&mut self, index: usize, data: Vec<i32>) {
         let data_shape = vec![data.len()];
         // TODO-fix hide devices under device_context level
-        let tensor_view = AllowedTensor::I32Tensor {
+        let tensor_view = ActTensorTypes::I32Tensor {
             data: TensorView::<i32>::new(data, ElementType::I32, data_shape),
         };
         // TODO-trial lowering UniBuffer range, to make session dev independent
@@ -368,21 +369,21 @@ impl VM {
 
     pub fn get_fdata(&self, index: usize) -> &Vec<f32> {
         match &self.data_buffer_f32[&index] {
-            AllowedTensor::F32Tensor { data } => &data.data,
+            ActTensorTypes::F32Tensor { data } => &data.data,
             _ => panic!("not support int types"),
         }
     }
 
     pub fn get_fshape(&self, index: usize) -> &Vec<usize> {
         match &self.data_buffer_f32[&index] {
-            AllowedTensor::F32Tensor { data } => &data.shape,
+            ActTensorTypes::F32Tensor { data } => &data.shape,
             _ => panic!("not support int types"),
         }
     }
 
     pub fn push_data_buffer_f32(&mut self, index: usize, data: Vec<f32>) {
         let data_shape = vec![data.len()];
-        let tensor_view = AllowedTensor::F32Tensor {
+        let tensor_view = ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, data_shape),
         };
         // TODO-trial lowering UniBuffer range, to make session dev independent
@@ -400,7 +401,7 @@ impl VM {
     }
 
     pub fn push_tensor_buffer(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
-        let tensor_view = AllowedTensor::F32Tensor {
+        let tensor_view = ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, shape),
         };
         // TODO-trial lowering UniBuffer range, to make session dev independent

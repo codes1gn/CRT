@@ -48,7 +48,7 @@ impl Drop for DeviceContext {
 
 // kaigao
 impl ExecutorLike for DeviceContext {
-    type TensorType = AllowedTensor;
+    type TensorType = ActTensorTypes;
     type OpCodeType = instruction::OpCode;
     fn new() -> DeviceContext {
         let mut di = DeviceInstance::new();
@@ -119,24 +119,24 @@ impl ExecutorLike for DeviceContext {
     ) -> Self::TensorType {
         // println!("============ on computing binary =============");
         match lhs_tensor {
-            AllowedTensor::F32Tensor { data } => {
+            ActTensorTypes::F32Tensor { data } => {
                 let lhs_data = data;
                 match rhs_tensor {
-                    AllowedTensor::F32Tensor { data } => {
+                    ActTensorTypes::F32Tensor { data } => {
                         let rhs_data = data;
-                        return AllowedTensor::F32Tensor {
+                        return ActTensorTypes::F32Tensor {
                             data: self.binary_compute_f32(op, lhs_data, rhs_data),
                         };
                     }
                     _ => panic!("dtype mismatch"),
                 }
             }
-            AllowedTensor::I32Tensor { data } => {
+            ActTensorTypes::I32Tensor { data } => {
                 let lhs_data = data;
                 match rhs_tensor {
-                    AllowedTensor::I32Tensor { data } => {
+                    ActTensorTypes::I32Tensor { data } => {
                         let rhs_data = data;
-                        return AllowedTensor::I32Tensor {
+                        return ActTensorTypes::I32Tensor {
                             data: self.binary_compute_i32(op, lhs_data, rhs_data),
                         };
                     }
