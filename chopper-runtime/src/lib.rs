@@ -11,34 +11,41 @@ use hal::{adapter::Adapter, adapter::MemoryType, buffer, command, memory, pool, 
 
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr};
 
+// generic CRT mods
 pub mod assembler;
 pub mod base;
 pub mod buffer_types;
+pub mod executors;
 pub mod instruction;
 pub mod interpreter;
 pub mod session;
-pub mod tensor_types;
-pub mod vm;
+pub mod tensors;
 
+// vulkan related mods
 pub mod functor;
 pub mod instance;
 pub mod kernel;
 pub mod vkgpu_executor;
+pub mod vm;
 
 pub mod prelude {
+    // generic CRT mods
     pub use crate::base::constants::*;
-    pub use crate::buffer_types::*;
+    pub use crate::executors::*;
     pub use crate::instruction::*;
     pub use crate::interpreter::*;
     pub use crate::session::*;
-    pub use crate::tensor_types::*;
+    pub use crate::tensors::*;
 
+    // vulkan related mods
+    pub use crate::buffer_types::*;
     pub use crate::instance::*;
     pub use crate::vkgpu_executor::*;
 }
 
 use base::constants::*;
 use buffer_types::*;
+use executors::*;
 #[cfg(feature = "vulkan")]
 use instance::*;
 use instruction::*;
@@ -50,7 +57,7 @@ use pyo3::types::{PyDict, PyTuple};
 use pyo3::wrap_pyfunction;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
 use session::*;
-use tensor_types::*;
+use tensors::*;
 use transpose::*;
 use vkgpu_executor::*;
 

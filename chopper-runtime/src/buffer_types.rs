@@ -5,7 +5,8 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 use raptors::prelude::*;
 
 use crate::base::constants::*;
-use crate::tensor_types::*;
+use crate::executors::*;
+use crate::tensors::*;
 use crate::vkgpu_executor::*;
 
 use crate::base::*;

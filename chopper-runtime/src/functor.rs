@@ -10,7 +10,7 @@ use crate::base::*;
 use crate::buffer_types::*;
 use crate::instance::*;
 use crate::instruction::*;
-use crate::tensor_types::*;
+use crate::tensors::*;
 use crate::vkgpu_executor::*;
 
 // TODO make OpCode and TensorFunctor as Trait to ensure pluggability.

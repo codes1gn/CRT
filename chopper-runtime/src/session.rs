@@ -8,11 +8,12 @@ use tokio::sync::oneshot;
 use crate::base::kernel::*;
 use crate::base::*;
 use crate::buffer_types::*;
+use crate::executors::*;
 use crate::functor::TensorFunctor;
 use crate::functor::*;
 use crate::instance::*;
-use crate::tensor_types::*;
-use crate::vkgpu_executor::*;
+use crate::tensors::*;
+// use crate::vkgpu_executor::*;
 use crate::OpCode;
 
 // TODO-move to interpreter initialization
@@ -113,7 +114,7 @@ impl HostSession {
     // TODO refactor this workaround: config
     #[cfg(all(not(feature = "mock"), not(feature = "vulkan"), not(feature = "blas")))]
     pub fn init(&mut self, executor_cnt: usize) {
-        panic!("features not set")
+        panic!("features not set");
     }
 
     #[cfg(all(feature = "mock", not(feature = "blas"), not(feature = "vulkan")))]

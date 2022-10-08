@@ -10,7 +10,7 @@ use crate::instruction::OpCode;
 use crate::buffer_types::*;
 use crate::instance::*;
 use crate::session::*;
-use crate::tensor_types::*;
+use crate::tensors::*;
 
 #[derive(Debug)]
 pub struct VM {
