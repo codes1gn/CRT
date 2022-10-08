@@ -10,7 +10,7 @@ use crate::base::*;
 
 impl<T> TensorLike for TensorView<T> {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TensorView<T> {
     pub data: Vec<T>,
     pub dtype: ElementType,
@@ -27,7 +27,7 @@ impl<T> TensorView<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ActTensorTypes {
     F32Tensor { data: TensorView<f32> },
     I32Tensor { data: TensorView<i32> },

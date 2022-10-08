@@ -325,6 +325,7 @@ impl VkGPUExecutor {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "vulkan")]
     #[test]
     fn create_add_functor() {
         // defaultly to Add, TODO, add more dispatch path

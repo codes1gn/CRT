@@ -108,8 +108,9 @@ impl Drop for DeviceInstance {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "vulkan")]
     #[test]
-    fn create_device_context() {
+    fn create_vulkan_device_instance() {
         let new_dc = DeviceInstance::new();
         assert_eq!(0, 0);
     }
