@@ -195,6 +195,9 @@ impl From<instruction::OpCode> for BlasOpCode {
     fn from(item: instruction::OpCode) -> Self {
         match item {
             instruction::OpCode::ADDF32 => BlasOpCode::AddF,
+            instruction::OpCode::SUBF32 => BlasOpCode::SubF,
+            instruction::OpCode::MULF32 => BlasOpCode::MulF,
+            instruction::OpCode::DIVF32 => BlasOpCode::DivF,
             instruction::OpCode::MATMULF32 => BlasOpCode::GemmF,
             _ => panic!("conversion from ChopperOpCode to BlasOpCode not registered"),
         }

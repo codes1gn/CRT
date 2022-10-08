@@ -275,7 +275,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_tensor_normal_helper() {
         let mut ipt = Interpreter::new();
@@ -436,7 +435,6 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(3), vec![3.3], rmax_all <= 0.00001);
     }
 
-    #[ignore]
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_sub_f32() {
@@ -461,7 +459,6 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(3), vec![-1.1], rmax_all <= 0.00001);
     }
 
-    #[ignore]
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_mul_f32() {
@@ -486,7 +483,6 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(3), vec![2.42], rmax_all <= 0.00001);
     }
 
-    #[ignore]
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_div_f32() {
@@ -545,7 +541,6 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(5), vec![2]);
     }
 
-    #[ignore]
     #[test]
     // TODO fix integer end2end pipeline
     fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
@@ -620,7 +615,6 @@ mod tests {
         );
     }
 
-    #[ignore]
     #[test]
     fn test_mock_bytecode_tensor_sub() {
         let mut ipt = Interpreter::new();
@@ -662,7 +656,6 @@ mod tests {
         );
     }
 
-    #[ignore]
     #[test]
     fn test_mock_bytecode_tensor_matmul() {
         let mut ipt = Interpreter::new();

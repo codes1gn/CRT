@@ -265,7 +265,6 @@ mod tests {
     }
 
     // TODO wait blas-backend support sub
-    #[ignore]
     #[test]
     fn test_e2e_sub() {
         let mut se = HostSession::new();

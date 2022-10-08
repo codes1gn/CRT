@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rublas::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::base::errors::EmptyCmdBufferError;
@@ -343,14 +344,10 @@ impl VM {
                 let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
                 let _tensor = match distribution {
                     0 => {
-                        use rublas::prelude::*;
                         // TODO make min-max adjustable
-                        BlasTensor::uniform(raw_shape_vec.clone(), -1f32, 1.0)
+                        BlasTensor::uniform(raw_shape_vec.clone(), -1f32, 1f32)
                     }
-                    1 => {
-                        // BlasTensor::normal(raw_shape_vec.clone()).unwrap()
-                        panic!("rublas blas-tensor not implement normal rng constructor");
-                    }
+                    1 => BlasTensor::normal(raw_shape_vec.clone(), 0f32, 1f32),
                     _ => panic!("unknown rng category????"),
                 };
                 self.push_tensor_buffer(
