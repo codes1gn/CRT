@@ -7,8 +7,8 @@ use crate::instruction::OpCode;
 
 // use assembler_base::*;
 use crate::assembler::assembler_base::*;
-use crate::assembler::parse_literal::*;
 use crate::assembler::parse_helper::*;
+use crate::assembler::parse_literal::*;
 use crate::assembler::parse_opcode::*;
 use crate::assembler::parse_operand::*;
 use crate::assembler::parse_type::*;
@@ -227,9 +227,8 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_zeros_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr(
-            "%0 = crt.literal.const.tensor! crt.helper.zeros<[2 3]>\n",
-        ));
+        let result =
+            parse_instruction(CompleteStr("%0 = crt.helper.svalue.tensor! zeros<[2 3]>\n"));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
@@ -246,9 +245,7 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_ones_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr(
-            "%0 = crt.literal.const.tensor! crt.helper.ones<[2 3]>\n",
-        ));
+        let result = parse_instruction(CompleteStr("%0 = crt.helper.svalue.tensor! ones<[2 3]>\n"));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
@@ -265,9 +262,7 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_uniform_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr(
-            "%0 = crt.literal.const.tensor! crt.helper.uniform<[2 3]>\n",
-        ));
+        let result = parse_instruction(CompleteStr("%0 = crt.helper.rng.tensor! uniform<[2 3]>\n"));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
@@ -284,9 +279,7 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_normal_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr(
-            "%0 = crt.literal.const.tensor! crt.helper.normal<[2 3]>\n",
-        ));
+        let result = parse_instruction(CompleteStr("%0 = crt.helper.rng.tensor! normal<[2 3]>\n"));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();

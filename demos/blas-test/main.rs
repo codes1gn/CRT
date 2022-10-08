@@ -45,11 +45,31 @@ fn pressure_test() {
     println!("time-cost >>>>>>>>>>> {:?}", duration);
 }
 
-fn add_test() {
+fn big_add_test() {
     // step 1, init device instance, also in VM instance init part
     // let ist = DeviceInstance::new();
     let mut ipt = Interpreter::new();
     ipt.init(3);
+
+    ipt.mock_operation("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+    ipt.mock_operation("%1 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+
+    // TODO svalue<[shape], 0.7>
+    // ipt.mock_operation("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+
+    ipt.run_bytecode("%3 = crt.add.f32! %1, %0 : f32\n".to_string());
+    assert_float_eq!(
+        *ipt.vm.get_fdata(3),
+        vec![2.0; 34 * 82 * 3],
+        rmax_all <= 0.00001
+    );
+}
+
+fn small_add_test() {
+    // step 1, init device instance, also in VM instance init part
+    // let ist = DeviceInstance::new();
+    let mut ipt = Interpreter::new();
+    ipt.init(1);
 
     let data0 = vec![1.1, 2.2, 3.3];
     let data1 = vec![1.1, 2.2, 3.3];
@@ -65,6 +85,7 @@ fn add_test() {
 }
 
 fn main() {
-    // add_test();
-    pressure_test();
+    // small_add_test();
+    big_add_test();
+    // pressure_test();
 }

@@ -92,7 +92,10 @@ impl AsmInstruction {
                         results.push(_value);
                     }
                 }
-                Token::UninitTensor { data_generator, shape } => {
+                Token::UninitTensor {
+                    data_generator,
+                    shape,
+                } => {
                     // push data_generator
                     let values = data_generator.to_le_bytes();
                     for _value in values {
@@ -109,7 +112,10 @@ impl AsmInstruction {
                         results.push(_shape)
                     }
                 }
-                Token::UninitRNGTensor { distribution, shape } => {
+                Token::UninitRNGTensor {
+                    distribution,
+                    shape,
+                } => {
                     // push distribution
                     results.push(*distribution);
                     // push shape
@@ -176,7 +182,10 @@ impl AsmInstruction {
                         results.push(_value);
                     }
                 }
-                Token::UninitTensor { data_generator, shape } => {
+                Token::UninitTensor {
+                    data_generator,
+                    shape,
+                } => {
                     // push data_generator
                     let values = data_generator.to_le_bytes();
                     for _value in values {
@@ -193,7 +202,10 @@ impl AsmInstruction {
                         results.push(_shape)
                     }
                 }
-                Token::UninitRNGTensor { distribution, shape } => {
+                Token::UninitRNGTensor {
+                    distribution,
+                    shape,
+                } => {
                     // push distribution
                     results.push(*distribution);
                     // push shape
@@ -261,7 +273,10 @@ impl AsmInstruction {
                         results.push(_value);
                     }
                 }
-                Token::UninitTensor { data_generator, shape } => {
+                Token::UninitTensor {
+                    data_generator,
+                    shape,
+                } => {
                     // push data_generator
                     let values = data_generator.to_le_bytes();
                     for _value in values {
@@ -278,7 +293,10 @@ impl AsmInstruction {
                         results.push(_shape)
                     }
                 }
-                Token::UninitRNGTensor { distribution, shape } => {
+                Token::UninitRNGTensor {
+                    distribution,
+                    shape,
+                } => {
                     // push distribution
                     results.push(*distribution);
                     // push shape

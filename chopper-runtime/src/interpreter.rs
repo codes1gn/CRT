@@ -238,6 +238,57 @@ mod tests {
 
     #[test]
     // TODO fix integer end2end pipeline
+    fn test_mock_bytecode_tensor_zeros_helper() {
+        let mut ipt = Interpreter::new();
+        ipt.init(2);
+        // ok
+        let status = ipt.mock_operation("%8 = crt.helper.svalue.tensor! zeros<[8 3]> : f32\n");
+        assert_eq!(status.is_ok(), true);
+        let status_code = status.unwrap();
+        assert_eq!(status_code, 0);
+        assert_eq!(*ipt.vm.get_fdata(8), vec![0f32; 24]);
+    }
+
+    #[test]
+    // TODO fix integer end2end pipeline
+    fn test_mock_bytecode_tensor_ones_helper() {
+        let mut ipt = Interpreter::new();
+        ipt.init(2);
+        // ok
+        let status = ipt.mock_operation("%8 = crt.helper.svalue.tensor! ones<[8 3]> : f32\n");
+        assert_eq!(status.is_ok(), true);
+        let status_code = status.unwrap();
+        assert_eq!(status_code, 0);
+        assert_eq!(*ipt.vm.get_fdata(8), vec![1f32; 24]);
+    }
+
+    #[test]
+    // TODO fix integer end2end pipeline
+    fn test_mock_bytecode_tensor_uniform_helper() {
+        let mut ipt = Interpreter::new();
+        ipt.init(1);
+        // ok
+        let status = ipt.mock_operation("%8 = crt.helper.rng.tensor! uniform<[8 3]> : f32\n");
+        assert_eq!(status.is_ok(), true);
+        let status_code = status.unwrap();
+        assert_eq!(status_code, 0);
+    }
+
+    #[test]
+    #[ignore]
+    // TODO fix integer end2end pipeline
+    fn test_mock_bytecode_tensor_normal_helper() {
+        let mut ipt = Interpreter::new();
+        ipt.init(1);
+        // ok
+        let status = ipt.mock_operation("%8 = crt.helper.rng.tensor! normal<[8 3]> : f32\n");
+        assert_eq!(status.is_ok(), true);
+        let status_code = status.unwrap();
+        assert_eq!(status_code, 0);
+    }
+
+    #[test]
+    // TODO fix integer end2end pipeline
     fn test_mock_bytecode_binary_add_i32() {
         let mut ipt = Interpreter::new();
         ipt.init(2);
@@ -651,6 +702,27 @@ mod tests {
         assert_float_eq!(
             *ipt.vm.get_fdata(6),
             vec![6., 6., 15., 15.],
+            rmax_all <= 0.00001
+        );
+    }
+
+    #[test]
+    fn test_big_matrix_add() {
+        // step 1, init device instance, also in VM instance init part
+        // let ist = DeviceInstance::new();
+        let mut ipt = Interpreter::new();
+        ipt.init(3);
+
+        ipt.mock_operation("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.mock_operation("%1 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+
+        // TODO svalue<[shape], 0.7>
+        // ipt.mock_operation("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+
+        ipt.run_bytecode("%3 = crt.add.f32! %1, %0 : f32\n".to_string());
+        assert_float_eq!(
+            *ipt.vm.get_fdata(3),
+            vec![2.0; 34 * 82 * 3],
             rmax_all <= 0.00001
         );
     }

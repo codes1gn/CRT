@@ -322,6 +322,44 @@ impl VM {
                 self.push_tensor_buffer(operand_out, raw_data_vec, raw_shape_vec);
                 Ok(0)
             }
+            OpCode::SVALUETENSOR => {
+                let operand_out = self.get_next_byte() as usize;
+                let data_generator = self.get_next_four_bytes();
+                // TODO currently svalue is hardcoded as float
+                let data_generator_f32 = f32::from_le_bytes(data_generator);
+                let shape_size = self.decode_two_bytes_as_vec_size() as usize;
+                let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
+                self.push_tensor_buffer(
+                    operand_out,
+                    vec![data_generator_f32; raw_shape_vec.iter().product()],
+                    raw_shape_vec,
+                );
+                Ok(0)
+            }
+            OpCode::RNGTENSOR => {
+                let operand_out = self.get_next_byte() as usize;
+                let distribution = self.get_next_byte();
+                let shape_size = self.decode_two_bytes_as_vec_size() as usize;
+                let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
+                let _tensor = match distribution {
+                    0 => {
+                        use rublas::prelude::*;
+                        // TODO make min-max adjustable
+                        BlasTensor::uniform(raw_shape_vec.clone(), -1f32, 1.0)
+                    }
+                    1 => {
+                        // BlasTensor::normal(raw_shape_vec.clone()).unwrap()
+                        panic!("rublas blas-tensor not implement normal rng constructor");
+                    }
+                    _ => panic!("unknown rng category????"),
+                };
+                self.push_tensor_buffer(
+                    operand_out,
+                    TensorView::<f32>::from(_tensor).data,
+                    raw_shape_vec,
+                );
+                Ok(0)
+            }
             _ => {
                 panic!("Not Implemented Error Execution Step Code");
             }

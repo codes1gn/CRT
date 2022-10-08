@@ -23,76 +23,11 @@ pub enum OpCode {
     CONSTTENSOR, // 12
     MATMULF32,   // 13
 
+    SVALUETENSOR, // 14
+    RNGTENSOR,    // 15
+
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
-}
-
-impl OpCodeLike for OpCode {}
-
-impl OpCode {
-    pub fn to_kernel_query_entry(&self) -> String {
-        match self {
-            // i32 types
-            OpCode::ADDI32 | OpCode::SUBI32 | OpCode::MULI32 | OpCode::FLOORDIVI32 => {
-                String::from("binary_arithmetic_i32")
-            }
-
-            // f32 types
-            // TODO(tianyu), this file specify the kernel code file name
-            OpCode::ADDF32 | OpCode::SUBF32 | OpCode::MULF32 | OpCode::DIVF32 => {
-                String::from("binary_arithmetic_f32")
-            }
-
-            OpCode::MATMULF32 => String::from("matrix_multiple_f32"),
-
-            _ => panic!("not support this op for dispatch kernel"),
-        }
-    }
-
-    pub fn to_specialise_bits(&self) -> u32 {
-        match self {
-            // add spec data
-            OpCode::ADDI32 | OpCode::ADDF32 => 0_u32,
-
-            // sub spec data
-            OpCode::SUBI32 | OpCode::SUBF32 => 1_u32,
-
-            // sub spec data
-            OpCode::MULI32 | OpCode::MULF32 => 2_u32,
-
-            // floordiv
-            OpCode::FLOORDIVI32 | OpCode::DIVF32 => 3_u32,
-
-            // matrix-multiple
-            OpCode::MATMULF32 => 4_u32,
-
-            // TODO(tianyu): change matmul opcode into add opcode to fake the compute
-            // OpCode::MATMULF32 => 0_u32,
-            _ => panic!("unsupported opcode for specilising kernels"),
-        }
-    }
-}
-
-impl From<CompleteStr<'_>> for OpCode {
-    fn from(s: CompleteStr<'_>) -> Self {
-        match s {
-            CompleteStr("halt") => OpCode::HALT,
-            CompleteStr("load") => OpCode::LOAD,
-            CompleteStr("crt.add.i32") => OpCode::ADDI32,
-            CompleteStr("crt.sub.i32") => OpCode::SUBI32,
-            CompleteStr("crt.mul.i32") => OpCode::MULI32,
-            CompleteStr("crt.floordiv.i32") => OpCode::FLOORDIVI32,
-            CompleteStr("crt.literal.const.i32") => OpCode::CONSTI32,
-            CompleteStr("crt.literal.const.f32") => OpCode::CONSTF32,
-            CompleteStr("crt.literal.const.tensor") => OpCode::CONSTTENSOR,
-            CompleteStr("crt.add.f32") => OpCode::ADDF32,
-            CompleteStr("crt.sub.f32") => OpCode::SUBF32,
-            CompleteStr("crt.mul.f32") => OpCode::MULF32,
-            CompleteStr("crt.matmul.f32") => OpCode::MATMULF32,
-            CompleteStr("crt.div.f32") => OpCode::DIVF32,
-            _ => OpCode::ILLEGAL,
-        }
-    }
 }
 
 // TODO
@@ -179,9 +114,85 @@ impl From<u8> for OpCode {
             13 => {
                 return OpCode::MATMULF32;
             }
+            14 => {
+                return OpCode::SVALUETENSOR;
+            }
+            15 => {
+                return OpCode::RNGTENSOR;
+            }
             _ => {
                 return OpCode::ILLEGAL;
             }
+        }
+    }
+}
+
+impl OpCodeLike for OpCode {}
+
+impl OpCode {
+    pub fn to_kernel_query_entry(&self) -> String {
+        match self {
+            // i32 types
+            OpCode::ADDI32 | OpCode::SUBI32 | OpCode::MULI32 | OpCode::FLOORDIVI32 => {
+                String::from("binary_arithmetic_i32")
+            }
+
+            // f32 types
+            // TODO(tianyu), this file specify the kernel code file name
+            OpCode::ADDF32 | OpCode::SUBF32 | OpCode::MULF32 | OpCode::DIVF32 => {
+                String::from("binary_arithmetic_f32")
+            }
+
+            OpCode::MATMULF32 => String::from("matrix_multiple_f32"),
+
+            _ => panic!("not support this op for dispatch kernel"),
+        }
+    }
+
+    pub fn to_specialise_bits(&self) -> u32 {
+        match self {
+            // add spec data
+            OpCode::ADDI32 | OpCode::ADDF32 => 0_u32,
+
+            // sub spec data
+            OpCode::SUBI32 | OpCode::SUBF32 => 1_u32,
+
+            // sub spec data
+            OpCode::MULI32 | OpCode::MULF32 => 2_u32,
+
+            // floordiv
+            OpCode::FLOORDIVI32 | OpCode::DIVF32 => 3_u32,
+
+            // matrix-multiple
+            OpCode::MATMULF32 => 4_u32,
+
+            // TODO(tianyu): change matmul opcode into add opcode to fake the compute
+            // OpCode::MATMULF32 => 0_u32,
+            _ => panic!("unsupported opcode for specilising kernels"),
+        }
+    }
+}
+
+impl From<CompleteStr<'_>> for OpCode {
+    fn from(s: CompleteStr<'_>) -> Self {
+        match s {
+            CompleteStr("halt") => OpCode::HALT,
+            CompleteStr("load") => OpCode::LOAD,
+            CompleteStr("crt.add.i32") => OpCode::ADDI32,
+            CompleteStr("crt.sub.i32") => OpCode::SUBI32,
+            CompleteStr("crt.mul.i32") => OpCode::MULI32,
+            CompleteStr("crt.floordiv.i32") => OpCode::FLOORDIVI32,
+            CompleteStr("crt.literal.const.i32") => OpCode::CONSTI32,
+            CompleteStr("crt.literal.const.f32") => OpCode::CONSTF32,
+            CompleteStr("crt.literal.const.tensor") => OpCode::CONSTTENSOR,
+            CompleteStr("crt.helper.svalue.tensor") => OpCode::SVALUETENSOR,
+            CompleteStr("crt.helper.rng.tensor") => OpCode::RNGTENSOR,
+            CompleteStr("crt.add.f32") => OpCode::ADDF32,
+            CompleteStr("crt.sub.f32") => OpCode::SUBF32,
+            CompleteStr("crt.mul.f32") => OpCode::MULF32,
+            CompleteStr("crt.matmul.f32") => OpCode::MATMULF32,
+            CompleteStr("crt.div.f32") => OpCode::DIVF32,
+            _ => OpCode::ILLEGAL,
         }
     }
 }
