@@ -26,6 +26,18 @@ pub enum Token {
         raw_data: Vec<f32>,
         shape: Vec<usize>,
     },
+    UninitTensor {
+        data_generator: f32,
+        shape: Vec<usize>,
+    },
+    // distribution => u8 : 0 -> uniform; 1 -> normal
+    // for uniform, arg1 => min, arg2 => max
+    // for normal, arg1 => mean, arg2 => std
+    // TODO use above setting, currently only support -1.0 -> 1.0 uniform and 0.0 - 1.0 normal
+    UninitRNGTensor {
+        distribution: u8,
+        shape: Vec<usize>,
+    },
     DType {
         element_type: ElementType,
     },
@@ -78,6 +90,37 @@ impl AsmInstruction {
                     let values = value.to_le_bytes();
                     for _value in values {
                         results.push(_value);
+                    }
+                }
+                Token::UninitTensor { data_generator, shape } => {
+                    // push data_generator
+                    let values = data_generator.to_le_bytes();
+                    for _value in values {
+                        results.push(_value);
+                    }
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                Token::UninitRNGTensor { distribution, shape } => {
+                    // push distribution
+                    results.push(*distribution);
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
                     }
                 }
                 Token::Tensor { raw_data, shape } => {
@@ -133,6 +176,37 @@ impl AsmInstruction {
                         results.push(_value);
                     }
                 }
+                Token::UninitTensor { data_generator, shape } => {
+                    // push data_generator
+                    let values = data_generator.to_le_bytes();
+                    for _value in values {
+                        results.push(_value);
+                    }
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                Token::UninitRNGTensor { distribution, shape } => {
+                    // push distribution
+                    results.push(*distribution);
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
                 Token::Tensor { raw_data, shape } => {
                     let data_bytes: Vec<u8> = bincode::serialize(&raw_data).unwrap();
                     let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
@@ -185,6 +259,37 @@ impl AsmInstruction {
                     let values = value.to_le_bytes();
                     for _value in values {
                         results.push(_value);
+                    }
+                }
+                Token::UninitTensor { data_generator, shape } => {
+                    // push data_generator
+                    let values = data_generator.to_le_bytes();
+                    for _value in values {
+                        results.push(_value);
+                    }
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                Token::UninitRNGTensor { distribution, shape } => {
+                    // push distribution
+                    results.push(*distribution);
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
                     }
                 }
                 Token::Tensor { raw_data, shape } => {
