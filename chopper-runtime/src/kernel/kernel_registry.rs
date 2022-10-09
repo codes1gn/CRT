@@ -29,7 +29,7 @@ impl KernelRegistry {
         };
     }
 
-    fn query_kernel_cache(&self, opcode: OpCode, query_entry: String) -> &KernelByteCode {
+    fn query_kernel_cache(&self, opcode: CRTOpCode, query_entry: String) -> &KernelByteCode {
         // TODO dummy impl
         return self.executable_cache_table.get(&query_entry).unwrap();
     }
@@ -38,7 +38,12 @@ impl KernelRegistry {
         self.executable_cache_table.insert(query_entry, kernel);
     }
 
-    pub fn dispatch_kernel(&self, dc: &VkGPUExecutor, op: OpCode, query_entry: String) -> Kernel {
+    pub fn dispatch_kernel(
+        &self,
+        dc: &VkGPUExecutor,
+        op: CRTOpCode,
+        query_entry: String,
+    ) -> Kernel {
         let shader = unsafe {
             dc.device
                 .create_shader_module(self.query_kernel_cache(op, query_entry))

@@ -2,8 +2,13 @@ use nom::types::CompleteStr;
 use raptors::prelude::OpCodeLike;
 use serde::{Deserialize, Serialize};
 
+use raptors::prelude::*;
+
+#[cfg(any(feature = "mock", feature = "blas"))]
+use rublas::prelude::*;
+
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
-pub enum OpCode {
+pub enum CRTOpCode {
     HALT, // 0
     LOAD, // 1
 
@@ -25,6 +30,9 @@ pub enum OpCode {
 
     SVALUETENSOR, // 14
     RNGTENSOR,    // 15
+
+    // Unary 16
+    EXPF32,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -69,81 +77,85 @@ pub enum OpCode {
 // shr
 // ======================     invoke ops
 // invoke
-impl From<u8> for OpCode {
+impl From<u8> for CRTOpCode {
     fn from(v: u8) -> Self {
         match v {
             0 => {
-                return OpCode::HALT;
+                return CRTOpCode::HALT;
             }
             1 => {
-                return OpCode::LOAD;
+                return CRTOpCode::LOAD;
             }
             2 => {
-                return OpCode::ADDI32;
+                return CRTOpCode::ADDI32;
             }
             3 => {
-                return OpCode::SUBI32;
+                return CRTOpCode::SUBI32;
             }
             4 => {
-                return OpCode::MULI32;
+                return CRTOpCode::MULI32;
             }
             5 => {
-                return OpCode::FLOORDIVI32;
+                return CRTOpCode::FLOORDIVI32;
             }
             6 => {
-                return OpCode::CONSTI32;
+                return CRTOpCode::CONSTI32;
             }
             7 => {
-                return OpCode::CONSTF32;
+                return CRTOpCode::CONSTF32;
             }
             8 => {
-                return OpCode::ADDF32;
+                return CRTOpCode::ADDF32;
             }
             9 => {
-                return OpCode::SUBF32;
+                return CRTOpCode::SUBF32;
             }
             10 => {
-                return OpCode::MULF32;
+                return CRTOpCode::MULF32;
             }
             11 => {
-                return OpCode::DIVF32;
+                return CRTOpCode::DIVF32;
             }
             12 => {
-                return OpCode::CONSTTENSOR;
+                return CRTOpCode::CONSTTENSOR;
             }
             13 => {
-                return OpCode::MATMULF32;
+                return CRTOpCode::MATMULF32;
             }
             14 => {
-                return OpCode::SVALUETENSOR;
+                return CRTOpCode::SVALUETENSOR;
             }
             15 => {
-                return OpCode::RNGTENSOR;
+                return CRTOpCode::RNGTENSOR;
+            }
+            16 => {
+                return CRTOpCode::EXPF32;
             }
             _ => {
-                return OpCode::ILLEGAL;
+                return CRTOpCode::ILLEGAL;
             }
         }
     }
 }
 
-impl OpCodeLike for OpCode {}
+impl OpCodeLike for CRTOpCode {}
 
-impl OpCode {
+// #[cfg(feature = "vulkan")]
+impl CRTOpCode {
     pub fn to_kernel_query_entry(&self) -> String {
         match self {
             // i32 types
-            OpCode::ADDI32 | OpCode::SUBI32 | OpCode::MULI32 | OpCode::FLOORDIVI32 => {
+            CRTOpCode::ADDI32 | CRTOpCode::SUBI32 | CRTOpCode::MULI32 | CRTOpCode::FLOORDIVI32 => {
                 String::from("binary_arithmetic_i32")
             }
 
             // f32 types
             // TODO(tianyu), this file specify the kernel code file name
-            OpCode::ADDF32 | OpCode::SUBF32 | OpCode::MULF32 | OpCode::DIVF32 => {
+            CRTOpCode::ADDF32 | CRTOpCode::SUBF32 | CRTOpCode::MULF32 | CRTOpCode::DIVF32 => {
                 String::from("binary_arithmetic_f32")
             }
 
-            OpCode::MATMULF32 => String::from("matrix_multiple_f32"),
+            CRTOpCode::MATMULF32 => String::from("matrix_multiple_f32"),
 
             _ => panic!("not support this op for dispatch kernel"),
         }
@@ -152,58 +164,146 @@ impl OpCode {
     pub fn to_specialise_bits(&self) -> u32 {
         match self {
             // add spec data
-            OpCode::ADDI32 | OpCode::ADDF32 => 0_u32,
+            CRTOpCode::ADDI32 | CRTOpCode::ADDF32 => 0_u32,
 
             // sub spec data
-            OpCode::SUBI32 | OpCode::SUBF32 => 1_u32,
+            CRTOpCode::SUBI32 | CRTOpCode::SUBF32 => 1_u32,
 
             // sub spec data
-            OpCode::MULI32 | OpCode::MULF32 => 2_u32,
+            CRTOpCode::MULI32 | CRTOpCode::MULF32 => 2_u32,
 
             // floordiv
-            OpCode::FLOORDIVI32 | OpCode::DIVF32 => 3_u32,
+            CRTOpCode::FLOORDIVI32 | CRTOpCode::DIVF32 => 3_u32,
 
             // matrix-multiple
-            OpCode::MATMULF32 => 4_u32,
+            CRTOpCode::MATMULF32 => 4_u32,
 
             // TODO(tianyu): change matmul opcode into add opcode to fake the compute
-            // OpCode::MATMULF32 => 0_u32,
+            // CRTOpCode::MATMULF32 => 0_u32,
             _ => panic!("unsupported opcode for specilising kernels"),
         }
     }
 }
 
-impl From<CompleteStr<'_>> for OpCode {
+impl From<CompleteStr<'_>> for CRTOpCode {
     fn from(s: CompleteStr<'_>) -> Self {
         match s {
-            CompleteStr("halt") => OpCode::HALT,
-            CompleteStr("load") => OpCode::LOAD,
-            CompleteStr("crt.add.i32") => OpCode::ADDI32,
-            CompleteStr("crt.sub.i32") => OpCode::SUBI32,
-            CompleteStr("crt.mul.i32") => OpCode::MULI32,
-            CompleteStr("crt.floordiv.i32") => OpCode::FLOORDIVI32,
-            CompleteStr("crt.literal.const.i32") => OpCode::CONSTI32,
-            CompleteStr("crt.literal.const.f32") => OpCode::CONSTF32,
-            CompleteStr("crt.literal.const.tensor") => OpCode::CONSTTENSOR,
-            CompleteStr("crt.helper.svalue.tensor") => OpCode::SVALUETENSOR,
-            CompleteStr("crt.helper.rng.tensor") => OpCode::RNGTENSOR,
-            CompleteStr("crt.add.f32") => OpCode::ADDF32,
-            CompleteStr("crt.sub.f32") => OpCode::SUBF32,
-            CompleteStr("crt.mul.f32") => OpCode::MULF32,
-            CompleteStr("crt.matmul.f32") => OpCode::MATMULF32,
-            CompleteStr("crt.div.f32") => OpCode::DIVF32,
-            _ => OpCode::ILLEGAL,
+            CompleteStr("halt") => CRTOpCode::HALT,
+            CompleteStr("load") => CRTOpCode::LOAD,
+            CompleteStr("crt.add.i32") => CRTOpCode::ADDI32,
+            CompleteStr("crt.sub.i32") => CRTOpCode::SUBI32,
+            CompleteStr("crt.mul.i32") => CRTOpCode::MULI32,
+            CompleteStr("crt.floordiv.i32") => CRTOpCode::FLOORDIVI32,
+            CompleteStr("crt.literal.const.i32") => CRTOpCode::CONSTI32,
+            CompleteStr("crt.literal.const.f32") => CRTOpCode::CONSTF32,
+            CompleteStr("crt.literal.const.tensor") => CRTOpCode::CONSTTENSOR,
+            CompleteStr("crt.helper.svalue.tensor") => CRTOpCode::SVALUETENSOR,
+            CompleteStr("crt.helper.rng.tensor") => CRTOpCode::RNGTENSOR,
+            CompleteStr("crt.add.f32") => CRTOpCode::ADDF32,
+            CompleteStr("crt.sub.f32") => CRTOpCode::SUBF32,
+            CompleteStr("crt.exp.f32") => CRTOpCode::EXPF32,
+            CompleteStr("crt.mul.f32") => CRTOpCode::MULF32,
+            CompleteStr("crt.matmul.f32") => CRTOpCode::MATMULF32,
+            CompleteStr("crt.div.f32") => CRTOpCode::DIVF32,
+            _ => CRTOpCode::ILLEGAL,
         }
     }
 }
 
+// Conversions to plugin-opcode-types
+// TODO rename OpCode to ChopperOpCode
+// TODO refactor to dedicate mods
+#[cfg(feature = "blas")]
+impl From<CRTOpCode> for BlasOpCode {
+    fn from(item: CRTOpCode) -> Self {
+        match item {
+            CRTOpCode::ADDF32 => BlasOpCode::AddF,
+            CRTOpCode::SUBF32 => BlasOpCode::SubF,
+            CRTOpCode::MULF32 => BlasOpCode::MulF,
+            CRTOpCode::DIVF32 => BlasOpCode::DivF,
+            CRTOpCode::ADDI32 => BlasOpCode::AddI,
+            CRTOpCode::SUBI32 => BlasOpCode::SubI,
+            CRTOpCode::MULI32 => BlasOpCode::MulI,
+            CRTOpCode::FLOORDIVI32 => BlasOpCode::DivI,
+            CRTOpCode::MATMULF32 => BlasOpCode::GemmF,
+            _ => panic!("conversion from ChopperOpCode to BlasOpCode not registered"),
+        }
+    }
+}
+
+#[cfg(feature = "blas")]
+impl From<BlasOpCode> for CRTOpCode {
+    fn from(item: BlasOpCode) -> Self {
+        match item {
+            BlasOpCode::AddF => CRTOpCode::ADDF32,
+            BlasOpCode::SubF => CRTOpCode::SUBF32,
+            BlasOpCode::MulF => CRTOpCode::MULF32,
+            BlasOpCode::DivF => CRTOpCode::DIVF32,
+            BlasOpCode::AddI => CRTOpCode::ADDI32,
+            BlasOpCode::SubI => CRTOpCode::SUBI32,
+            BlasOpCode::MulI => CRTOpCode::MULI32,
+            BlasOpCode::DivI => CRTOpCode::FLOORDIVI32,
+            BlasOpCode::GemmF => CRTOpCode::MATMULF32,
+            _ => panic!("conversion from BlasOpCode to ChopperOpCode not registered"),
+        }
+    }
+}
+
+#[cfg(feature = "mock")]
+impl From<CRTOpCode> for MockOpCode {
+    fn from(item: CRTOpCode) -> Self {
+        match item {
+            CRTOpCode::EXPF32 => MockOpCode::ExpOp,
+            CRTOpCode::ADDF32 => MockOpCode::AddOp,
+            CRTOpCode::SUBF32 => MockOpCode::SubOp,
+            CRTOpCode::MULF32 => MockOpCode::MulOp,
+            CRTOpCode::DIVF32 => MockOpCode::DivOp,
+            CRTOpCode::ADDI32 => MockOpCode::AddOp,
+            CRTOpCode::SUBI32 => MockOpCode::SubOp,
+            CRTOpCode::MULI32 => MockOpCode::MulOp,
+            CRTOpCode::FLOORDIVI32 => MockOpCode::DivOp,
+            CRTOpCode::MATMULF32 => MockOpCode::MatmulOp,
+            _ => panic!("conversion from ChopperOpCode to MockOpCode not registered"),
+        }
+    }
+}
+
+#[cfg(feature = "blas")]
+impl From<MockOpCode> for CRTOpCode {
+    fn from(item: MockOpCode) -> Self {
+        match item {
+            MockOpCode::ExpOp => CRTOpCode::EXPF32,
+            MockOpCode::AddOp => CRTOpCode::ADDF32,
+            MockOpCode::SubOp => CRTOpCode::SUBF32,
+            MockOpCode::MulOp => CRTOpCode::MULF32,
+            MockOpCode::DivOp => CRTOpCode::DIVF32,
+            // MockOpCode::SinOp => CRTOpCode::SINF32,
+            // MockOpCode::ExpOp => CRTOpCode::EXPF32,
+            // pub enum MockOpCode {
+            //     IdentityOp,
+            //     AddOp,
+            //     SubOp,
+            //     MulOp,
+            //     DivOp,
+            //     ConvOp,
+            //     ExpOp,
+            //     MatmulOp,
+            //     SinOp,
+            // }
+            MockOpCode::MatmulOp => CRTOpCode::MATMULF32,
+            _ => panic!("conversion from MockOpCode to ChopperOpCode not registered"),
+        }
+    }
+}
+
+// Inst types definition
 pub struct Instruction {
-    opcode: OpCode,
+    opcode: CRTOpCode,
 }
 
 // Note
 impl Instruction {
-    pub fn new(opcode: OpCode) -> Instruction {
+    pub fn new(opcode: CRTOpCode) -> Instruction {
         Instruction { opcode: opcode }
     }
 }
@@ -215,54 +315,54 @@ mod tests {
 
     #[test]
     fn test_opcodes() {
-        let opcode = OpCode::HALT;
-        assert_eq!(opcode, OpCode::HALT);
+        let opcode = CRTOpCode::HALT;
+        assert_eq!(opcode, CRTOpCode::HALT);
 
-        let opcode = OpCode::LOAD;
-        assert_eq!(opcode, OpCode::LOAD);
+        let opcode = CRTOpCode::LOAD;
+        assert_eq!(opcode, CRTOpCode::LOAD);
 
-        let opcode = OpCode::ADDI32;
-        assert_eq!(opcode, OpCode::ADDI32);
+        let opcode = CRTOpCode::ADDI32;
+        assert_eq!(opcode, CRTOpCode::ADDI32);
 
-        let opcode = OpCode::SUBI32;
-        assert_eq!(opcode, OpCode::SUBI32);
+        let opcode = CRTOpCode::SUBI32;
+        assert_eq!(opcode, CRTOpCode::SUBI32);
 
-        let opcode = OpCode::MULI32;
-        assert_eq!(opcode, OpCode::MULI32);
+        let opcode = CRTOpCode::MULI32;
+        assert_eq!(opcode, CRTOpCode::MULI32);
 
-        let opcode = OpCode::FLOORDIVI32;
-        assert_eq!(opcode, OpCode::FLOORDIVI32);
+        let opcode = CRTOpCode::FLOORDIVI32;
+        assert_eq!(opcode, CRTOpCode::FLOORDIVI32);
 
-        let opcode = OpCode::CONSTI32;
-        assert_eq!(opcode, OpCode::CONSTI32);
+        let opcode = CRTOpCode::CONSTI32;
+        assert_eq!(opcode, CRTOpCode::CONSTI32);
 
-        let opcode = OpCode::CONSTF32;
-        assert_eq!(opcode, OpCode::CONSTF32);
+        let opcode = CRTOpCode::CONSTF32;
+        assert_eq!(opcode, CRTOpCode::CONSTF32);
 
-        let opcode = OpCode::CONSTTENSOR;
-        assert_eq!(opcode, OpCode::CONSTTENSOR);
+        let opcode = CRTOpCode::CONSTTENSOR;
+        assert_eq!(opcode, CRTOpCode::CONSTTENSOR);
     }
 
     #[test]
     fn test_create_opcode() {
-        let opcode = OpCode::ILLEGAL;
+        let opcode = CRTOpCode::ILLEGAL;
         let inst = Instruction::new(opcode);
-        assert_eq!(inst.opcode, OpCode::ILLEGAL);
+        assert_eq!(inst.opcode, CRTOpCode::ILLEGAL);
 
-        let opcode = OpCode::CONSTF32;
+        let opcode = CRTOpCode::CONSTF32;
         let inst = Instruction::new(opcode);
-        assert_eq!(inst.opcode, OpCode::CONSTF32);
+        assert_eq!(inst.opcode, CRTOpCode::CONSTF32);
 
-        let opcode = OpCode::CONSTI32;
+        let opcode = CRTOpCode::CONSTI32;
         let inst = Instruction::new(opcode);
-        assert_eq!(inst.opcode, OpCode::CONSTI32);
+        assert_eq!(inst.opcode, CRTOpCode::CONSTI32);
 
-        let opcode = OpCode::CONSTTENSOR;
+        let opcode = CRTOpCode::CONSTTENSOR;
         let inst = Instruction::new(opcode);
-        assert_eq!(inst.opcode, OpCode::CONSTTENSOR);
+        assert_eq!(inst.opcode, CRTOpCode::CONSTTENSOR);
 
-        let opcode = OpCode::MATMULF32;
+        let opcode = CRTOpCode::MATMULF32;
         let inst = Instruction::new(opcode);
-        assert_eq!(inst.opcode, OpCode::MATMULF32);
+        assert_eq!(inst.opcode, CRTOpCode::MATMULF32);
     }
 }

@@ -2,9 +2,6 @@
 use nom::types::CompleteStr;
 use nom::*;
 
-// mods from local crate
-use crate::instruction::OpCode;
-
 // submods
 pub mod assembler_base;
 pub mod parse_helper;

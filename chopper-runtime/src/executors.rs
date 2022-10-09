@@ -8,7 +8,6 @@ use raptors::prelude::*;
 #[cfg(any(feature = "mock", feature = "blas"))]
 use rublas::prelude::*;
 
-use crate::instruction;
 use crate::instruction::*;
 
 use crate::base::kernel::*;
@@ -32,7 +31,7 @@ pub enum ActExecutorTypes {
 
 impl ExecutorLike for ActExecutorTypes {
     type TensorType = ActTensorTypes;
-    type OpCodeType = instruction::OpCode;
+    type OpCodeType = CRTOpCode;
     fn new_with_typeid(typeid: usize) -> ActExecutorTypes {
         match typeid {
             0 => ActExecutorTypes::MockExecutor(MockExecutor::new()),
@@ -75,8 +74,21 @@ impl ExecutorLike for ActExecutorTypes {
         in_tensor: Self::TensorType,
     ) -> Self::TensorType {
         // debug!("============ on computing unary =============");
-        panic!("cannot compute");
-        in_tensor
+        match self {
+            #[cfg(feature = "mock")]
+            ActExecutorTypes::MockExecutor(ref mut _executor) => {
+                _executor.mock_unary::<Self::TensorType>(op.into(), in_tensor)
+            }
+            #[cfg(feature = "vulkan")]
+            ActExecutorTypes::VkGPUExecutor(ref mut _executor) => {
+                panic!("not implemented");
+            }
+            #[cfg(all(feature = "blas"))]
+            ActExecutorTypes::BlasExecutor(ref mut _executor) => {
+                panic!("not implemented");
+            }
+            _ => panic!("not registered backend typeid"),
+        }
     }
 
     fn binary_compute(
@@ -87,8 +99,9 @@ impl ExecutorLike for ActExecutorTypes {
     ) -> Self::TensorType {
         // debug!("============ on computing binary =============");
         match self {
+            #[cfg(feature = "mock")]
             ActExecutorTypes::MockExecutor(ref mut _executor) => {
-                _executor.mock_binary::<Self::TensorType>(lhs_tensor, rhs_tensor)
+                _executor.mock_binary::<Self::TensorType>(op.into(), lhs_tensor, rhs_tensor)
                 // TODO use pattern match on matching tensortypes, rather than call as generic
                 // WIP match lhs_tensor {
                 // WIP     // TODO WIP make this MockTensor
@@ -109,6 +122,7 @@ impl ExecutorLike for ActExecutorTypes {
                 // WIP     _ => panic!("dtype not compatible, exp_executor <type: MockTensor> {:#?}", lhs_tensor),
                 // WIP }
             }
+            #[cfg(feature = "vulkan")]
             ActExecutorTypes::VkGPUExecutor(ref mut _executor) => {
                 match lhs_tensor {
                     ActTensorTypes::F32Tensor { data } => {
@@ -138,7 +152,7 @@ impl ExecutorLike for ActExecutorTypes {
                     _ => panic!("dtype-comp not implemented"),
                 };
             }
-            #[cfg(all(feature = "blas"))]
+            #[cfg(feature = "blas")]
             ActExecutorTypes::BlasExecutor(ref mut _executor) => {
                 match lhs_tensor {
                     ActTensorTypes::F32Tensor { data } => {
@@ -181,44 +195,6 @@ impl ExecutorLike for ActExecutorTypes {
                 };
             }
             _ => panic!("not registered backend typeid"),
-        }
-    }
-}
-
-// TODO rename OpCode to ChopperOpCode
-// TODO refactor to dedicate mods
-#[cfg(feature = "blas")]
-impl From<instruction::OpCode> for BlasOpCode {
-    fn from(item: instruction::OpCode) -> Self {
-        match item {
-            instruction::OpCode::ADDF32 => BlasOpCode::AddF,
-            instruction::OpCode::SUBF32 => BlasOpCode::SubF,
-            instruction::OpCode::MULF32 => BlasOpCode::MulF,
-            instruction::OpCode::DIVF32 => BlasOpCode::DivF,
-            instruction::OpCode::ADDI32 => BlasOpCode::AddI,
-            instruction::OpCode::SUBI32 => BlasOpCode::SubI,
-            instruction::OpCode::MULI32 => BlasOpCode::MulI,
-            instruction::OpCode::FLOORDIVI32 => BlasOpCode::DivI,
-            instruction::OpCode::MATMULF32 => BlasOpCode::GemmF,
-            _ => panic!("conversion from ChopperOpCode to BlasOpCode not registered"),
-        }
-    }
-}
-
-#[cfg(feature = "blas")]
-impl From<BlasOpCode> for instruction::OpCode {
-    fn from(item: BlasOpCode) -> Self {
-        match item {
-            BlasOpCode::AddF => instruction::OpCode::ADDF32,
-            BlasOpCode::SubF => instruction::OpCode::SUBF32,
-            BlasOpCode::MulF => instruction::OpCode::MULF32,
-            BlasOpCode::DivF => instruction::OpCode::DIVF32,
-            BlasOpCode::AddI => instruction::OpCode::ADDI32,
-            BlasOpCode::SubI => instruction::OpCode::SUBI32,
-            BlasOpCode::MulI => instruction::OpCode::MULI32,
-            BlasOpCode::DivI => instruction::OpCode::FLOORDIVI32,
-            BlasOpCode::GemmF => instruction::OpCode::MATMULF32,
-            _ => panic!("conversion from BlasOpCode to ChopperOpCode not registered"),
         }
     }
 }

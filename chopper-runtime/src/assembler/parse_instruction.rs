@@ -3,7 +3,7 @@ use nom::types::CompleteStr;
 use nom::*;
 
 // mods from local crate
-use crate::instruction::OpCode;
+use crate::instruction::CRTOpCode;
 
 // use assembler_base::*;
 use crate::assembler::assembler_base::*;
@@ -33,7 +33,7 @@ named!(parse_directive<CompleteStr, AsmInstruction>,
         opt!(multispace) >>
         (
             AsmInstruction {
-                opcode: Token::BytecodeOpCode { code: OpCode::from(_opcode) },
+                opcode: Token::BytecodeOpCode { code: CRTOpCode::from(_opcode) },
                 operand1: None,
                 operand2: None,
                 operand3: None,
@@ -111,7 +111,9 @@ mod tests {
         assert_eq!(_result.0.is_empty(), true);
         assert_eq!(
             _result.1.opcode,
-            Token::BytecodeOpCode { code: OpCode::HALT }
+            Token::BytecodeOpCode {
+                code: CRTOpCode::HALT
+            }
         );
     }
 

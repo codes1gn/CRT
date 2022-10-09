@@ -3,7 +3,7 @@ use nom::types::CompleteStr;
 use nom::*;
 
 // mods from local crate
-use crate::instruction::OpCode;
+use crate::instruction::CRTOpCode;
 
 // use assembler_base::*;
 use crate::assembler::assembler_base::Token;
@@ -13,7 +13,7 @@ named!(pub parse_opcode<CompleteStr, Token>,
     do_parse!(
         // use ! tag to specify the bytecode opcode for simplicity
         opcode: take_until_and_consume1!("!")
-        >> (Token::BytecodeOpCode { code: OpCode::from(opcode) })
+        >> (Token::BytecodeOpCode { code: CRTOpCode::from(opcode) })
     )
 );
 
@@ -23,16 +23,16 @@ mod tests {
 
     #[test]
     fn test_bytecode_to_opcode() {
-        let opcode = OpCode::from(CompleteStr("load"));
-        assert_eq!(opcode, OpCode::LOAD);
-        let opcode = OpCode::from(CompleteStr("crt.add.i32"));
-        assert_eq!(opcode, OpCode::ADDI32);
-        let opcode = OpCode::from(CompleteStr("crt.sub.i32"));
-        assert_eq!(opcode, OpCode::SUBI32);
-        let opcode = OpCode::from(CompleteStr("crt.mul.i32"));
-        assert_eq!(opcode, OpCode::MULI32);
-        let opcode = OpCode::from(CompleteStr("crt.matmul.f32"));
-        assert_eq!(opcode, OpCode::MATMULF32);
+        let opcode = CRTOpCode::from(CompleteStr("load"));
+        assert_eq!(opcode, CRTOpCode::LOAD);
+        let opcode = CRTOpCode::from(CompleteStr("crt.add.i32"));
+        assert_eq!(opcode, CRTOpCode::ADDI32);
+        let opcode = CRTOpCode::from(CompleteStr("crt.sub.i32"));
+        assert_eq!(opcode, CRTOpCode::SUBI32);
+        let opcode = CRTOpCode::from(CompleteStr("crt.mul.i32"));
+        assert_eq!(opcode, CRTOpCode::MULI32);
+        let opcode = CRTOpCode::from(CompleteStr("crt.matmul.f32"));
+        assert_eq!(opcode, CRTOpCode::MATMULF32);
     }
 
     #[test]
@@ -41,7 +41,9 @@ mod tests {
         let result = parse_opcode(CompleteStr("halt!"));
         assert_eq!(
             result.unwrap().1,
-            Token::BytecodeOpCode { code: OpCode::HALT }
+            Token::BytecodeOpCode {
+                code: CRTOpCode::HALT
+            }
         );
     }
 
@@ -53,7 +55,7 @@ mod tests {
         assert_eq!(
             token,
             Token::BytecodeOpCode {
-                code: OpCode::ILLEGAL
+                code: CRTOpCode::ILLEGAL
             }
         );
         assert_eq!(rest, CompleteStr(""));
@@ -61,14 +63,14 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::ILLEGAL
+                code: CRTOpCode::ILLEGAL
             }
         );
         let result = parse_opcode(CompleteStr("l oad!"));
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::ILLEGAL
+                code: CRTOpCode::ILLEGAL
             }
         );
         // case sensitive
@@ -76,21 +78,23 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::ILLEGAL
+                code: CRTOpCode::ILLEGAL
             }
         );
         let result = parse_opcode(CompleteStr("LoAd!"));
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::ILLEGAL
+                code: CRTOpCode::ILLEGAL
             }
         );
         // test load
         let result = parse_opcode(CompleteStr("load!"));
         assert_eq!(
             result.unwrap().1,
-            Token::BytecodeOpCode { code: OpCode::LOAD }
+            Token::BytecodeOpCode {
+                code: CRTOpCode::LOAD
+            }
         );
     }
 
@@ -101,7 +105,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::ADDI32
+                code: CRTOpCode::ADDI32
             }
         );
         // test sub
@@ -109,7 +113,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::SUBI32
+                code: CRTOpCode::SUBI32
             }
         );
         // test mul
@@ -117,7 +121,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::MULI32
+                code: CRTOpCode::MULI32
             }
         );
         // test floordiv i32
@@ -125,7 +129,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::FLOORDIVI32
+                code: CRTOpCode::FLOORDIVI32
             }
         );
         // test add
@@ -133,7 +137,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::ADDF32
+                code: CRTOpCode::ADDF32
             }
         );
         // test sub
@@ -141,7 +145,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::SUBF32
+                code: CRTOpCode::SUBF32
             }
         );
         // test mul
@@ -149,7 +153,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::MULF32
+                code: CRTOpCode::MULF32
             }
         );
         // test div f32
@@ -158,7 +162,7 @@ mod tests {
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {
-                code: OpCode::DIVF32
+                code: CRTOpCode::DIVF32
             }
         );
     }
@@ -173,7 +177,7 @@ mod tests {
         assert_eq!(
             token,
             Token::BytecodeOpCode {
-                code: OpCode::CONSTI32
+                code: CRTOpCode::CONSTI32
             }
         );
         assert_eq!(rest, CompleteStr(""));
@@ -186,7 +190,7 @@ mod tests {
         assert_eq!(
             token,
             Token::BytecodeOpCode {
-                code: OpCode::CONSTF32
+                code: CRTOpCode::CONSTF32
             }
         );
         assert_eq!(rest, CompleteStr(""));

@@ -65,6 +65,27 @@ fn big_add_test() {
     );
 }
 
+fn exp_test() {
+    // step 1, init device instance, also in VM instance init part
+    // let ist = DeviceInstance::new();
+    let mut ipt = Interpreter::new();
+    ipt.init(3);
+
+    ipt.mock_operation("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+
+    // TODO svalue<[shape], 0.7>
+    // ipt.mock_operation("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+
+    ipt.run_bytecode("%1 = crt.exp.f32! %0 : f32\n".to_string());
+    // ipt.run_bytecode("%2 = crt.exp.f32! %1 : f32\n".to_string());
+    // ipt.run_bytecode("%3 = crt.exp.f32! %2 : f32\n".to_string());
+    // assert_float_eq!(
+    //     *ipt.vm.get_fdata(3),
+    //     vec![1.0; 34 * 82 * 3],
+    //     rmax_all <= 0.00001
+    // );
+}
+
 fn small_add_test() {
     // step 1, init device instance, also in VM instance init part
     // let ist = DeviceInstance::new();
@@ -86,6 +107,7 @@ fn small_add_test() {
 
 fn main() {
     // small_add_test();
-    big_add_test();
+    // big_add_test();
     // pressure_test();
+    exp_test();
 }

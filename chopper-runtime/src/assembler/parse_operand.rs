@@ -2,9 +2,6 @@
 use nom::types::CompleteStr;
 use nom::*;
 
-// mods from local crate
-use crate::instruction::OpCode;
-
 use crate::assembler::assembler_base::Token;
 
 named!(pub parse_operand <CompleteStr, Token>,

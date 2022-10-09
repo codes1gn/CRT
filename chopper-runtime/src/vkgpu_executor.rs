@@ -94,7 +94,7 @@ impl VkGPUExecutor {
 
     pub(crate) fn binary_compute_i32(
         &mut self,
-        op: OpCode,
+        op: CRTOpCode,
         lhs_tensor: TensorView<i32>,
         rhs_tensor: TensorView<i32>,
     ) -> TensorView<i32> {
@@ -129,7 +129,7 @@ impl VkGPUExecutor {
 
     pub(crate) fn binary_compute_f32(
         &mut self,
-        op: OpCode,
+        op: CRTOpCode,
         lhs_tensor: TensorView<f32>,
         rhs_tensor: TensorView<f32>,
     ) -> TensorView<f32> {
@@ -164,7 +164,7 @@ impl VkGPUExecutor {
 
     pub fn register_kernels(&mut self, file_path: &str, query_entry: String) {
         // glsl_to_spirv, TODO, support more, spv format and readable spirv ir.
-        // TODO, read external config of all kernels, and cache it by OpCode
+        // TODO, read external config of all kernels, and cache it by CRTOpCode
         let glsl = fs::read_to_string(file_path).unwrap();
         // println!("{:?}", glsl);
         let spirv_file = glsl_to_spirv::compile(&glsl, glsl_to_spirv::ShaderType::Compute).unwrap();
@@ -179,8 +179,8 @@ impl VkGPUExecutor {
         &self.kernel_registry
     }
 
-    // TODO seal raptors OpCode inside and not expose
-    pub fn dispatch_kernel(&self, op: instruction::OpCode) -> Kernel {
+    // TODO seal raptors CRTOpCode inside and not expose
+    pub fn dispatch_kernel(&self, op: CRTOpCode) -> Kernel {
         let query_entry: String = op.to_kernel_query_entry();
         self.kernel_registry.dispatch_kernel(self, op, query_entry)
     }
@@ -189,7 +189,7 @@ impl VkGPUExecutor {
         &mut self,
         lhs_tensor: TensorView<T>,
         rhs_tensor: TensorView<T>,
-        opcode: instruction::OpCode,
+        opcode: CRTOpCode,
     ) -> TensorView<T> {
         let mut lhs_buffer_functor = UniBuffer::<concrete_backend::Backend, T>::new(
             &self.device,
@@ -221,7 +221,7 @@ impl VkGPUExecutor {
 // kaigao
 // WIP impl ExecutorLike for VkGPUExecutor {
 // WIP     type TensorType = ActTensorTypes;
-// WIP     type OpCodeType = instruction::OpCode;
+// WIP     type CRTOpCodeType = CRTOpCode;
 // WIP     fn new() -> VkGPUExecutor {
 // WIP         let mut di = DeviceInstance::new();
 // WIP         let mut device_and_queue = di.device_and_queue();
@@ -278,14 +278,14 @@ impl VkGPUExecutor {
 // WIP         wkl
 // WIP     }
 // WIP
-// WIP     fn unary_compute(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
+// WIP     fn unary_compute(&mut self, op: Self::CRTOpCodeType, lhs: Self::TensorType) -> Self::TensorType {
 // WIP         // println!("============ on computing unary =============");
 // WIP         lhs
 // WIP     }
 // WIP
 // WIP     fn binary_compute(
 // WIP         &mut self,
-// WIP         op: Self::OpCodeType,
+// WIP         op: Self::CRTOpCodeType,
 // WIP         lhs_tensor: Self::TensorType,
 // WIP         rhs_tensor: Self::TensorType,
 // WIP     ) -> Self::TensorType {

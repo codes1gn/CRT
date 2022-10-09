@@ -13,7 +13,7 @@ use crate::instruction::*;
 use crate::tensors::*;
 use crate::vkgpu_executor::*;
 
-// TODO make OpCode and TensorFunctor as Trait to ensure pluggability.
+// TODO make CRTOpCode and TensorFunctor as Trait to ensure pluggability.
 pub(crate) struct TensorFunctor {}
 
 impl TensorFunctor {
@@ -23,7 +23,7 @@ impl TensorFunctor {
 
     pub fn wrap_kernel_specialise_attr(
         &self,
-        opcode: OpCode,
+        opcode: CRTOpCode,
     ) -> (Vec<pso::SpecializationConstant>, Vec<u8>) {
         // specialise op by opcode
         let spec_const = opcode.to_specialise_bits();
@@ -49,7 +49,7 @@ impl TensorFunctor {
         device_context: &mut VkGPUExecutor,
         mut lhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
         mut rhs_buffer_functor: UniBuffer<concrete_backend::Backend, T>,
-        opcode: OpCode,
+        opcode: CRTOpCode,
     ) -> UniBuffer<concrete_backend::Backend, T> {
         let shader = device_context.dispatch_kernel(opcode);
         let device_instance_ref = &device_context.device_instance;
@@ -115,18 +115,18 @@ impl TensorFunctor {
         let spec_data: Cow<[u8]> = Cow::Owned(opcode_data);
 
         match opcode {
-            OpCode::ADDI32
-            | OpCode::SUBI32
-            | OpCode::MULI32
-            | OpCode::FLOORDIVI32
-            | OpCode::ADDF32
-            | OpCode::SUBF32
-            | OpCode::MULF32
-            | OpCode::DIVF32 => {
+            CRTOpCode::ADDI32
+            | CRTOpCode::SUBI32
+            | CRTOpCode::MULI32
+            | CRTOpCode::FLOORDIVI32
+            | CRTOpCode::ADDF32
+            | CRTOpCode::SUBF32
+            | CRTOpCode::MULF32
+            | CRTOpCode::DIVF32 => {
                 res_shape = lhs_shape.to_vec();
                 res_dsize = lhs_buffer_functor.data_size;
             }
-            OpCode::MATMULF32 => {
+            CRTOpCode::MATMULF32 => {
                 // assert_eq!(lhs_buffer_functor.shape.len(), 2);
                 assert_eq!(rhs_shape.len(), 2);
 

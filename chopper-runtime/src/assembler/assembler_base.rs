@@ -4,13 +4,13 @@ use nom::*;
 use serde::{Deserialize, Serialize};
 
 use crate::base::*;
-use crate::instruction::OpCode;
+use crate::instruction::CRTOpCode;
 
 // enum type can accept struct-like value.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Token {
     BytecodeOpCode {
-        code: OpCode,
+        code: CRTOpCode,
     },
     Variable {
         symbol: u8,

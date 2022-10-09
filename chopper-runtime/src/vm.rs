@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::base::errors::EmptyCmdBufferError;
 use crate::base::errors::RuntimeStatusError;
 use crate::base::*;
-use crate::instruction::OpCode;
+use crate::instruction::CRTOpCode;
 
 use crate::buffer_types::*;
 use crate::instance::*;
@@ -59,11 +59,12 @@ impl VM {
         self.session.init(executor_cnt);
     }
 
-    fn fetch_instruction(&mut self) -> Result<OpCode, EmptyCmdBufferError> {
+    fn fetch_instruction(&mut self) -> Result<CRTOpCode, EmptyCmdBufferError> {
         if self.program_counter > self.command_buffer.len() {
             return Err(EmptyCmdBufferError);
         }
-        let opcode = OpCode::from(self.command_buffer[self.program_counter]);
+        let opcode = CRTOpCode::from(self.command_buffer[self.program_counter]);
+        println!("{:#?}", opcode);
         self.program_counter += 1;
         Ok(opcode)
     }
@@ -132,18 +133,18 @@ impl VM {
 
     // TODO may replace status with a enum
     fn step(&mut self) -> Result<u8, RuntimeStatusError> {
-        // println!("start execute step");
+        println!("start execute step");
         match self.fetch_instruction().unwrap() {
-            OpCode::HALT => {
+            CRTOpCode::HALT => {
                 println!("halt to exit");
                 // TODO move to base::const, use 1 as halt status
                 Ok(1)
             }
-            OpCode::ILLEGAL => {
+            CRTOpCode::ILLEGAL => {
                 println!("Illegal instruction found");
                 Err(RuntimeStatusError)
             }
-            OpCode::LOAD => {
+            CRTOpCode::LOAD => {
                 let register_id = self.get_next_byte() as usize;
                 let operand = self.get_next_two_bytes() as u16;
                 // note the registers is defaultly i32s
@@ -152,7 +153,17 @@ impl VM {
                 // TODO change into verbose string
                 Ok(0)
             }
-            OpCode::ADDI32 => {
+            CRTOpCode::EXPF32 => {
+                let operand_out = self.get_next_byte() as usize;
+                let operand_in = self.get_next_byte() as usize;
+                // TODO rename dataview into ActTensorTypes
+                let in_dataview = self.data_buffer_f32.remove(&operand_in).unwrap();
+                let opcode = CRTOpCode::EXPF32;
+                let outs = self.session.launch_unary_compute(opcode, in_dataview);
+                self.data_buffer_f32.insert(operand_out, outs);
+                Ok(0)
+            }
+            CRTOpCode::ADDI32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -160,7 +171,7 @@ impl VM {
                 let rhs_dataview = self.data_buffer_i32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::ADDI32;
+                let opcode = CRTOpCode::ADDI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
@@ -168,7 +179,7 @@ impl VM {
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::ADDF32 => {
+            CRTOpCode::ADDF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -176,7 +187,7 @@ impl VM {
                 let rhs_dataview = self.data_buffer_f32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::ADDF32;
+                let opcode = CRTOpCode::ADDF32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
@@ -184,7 +195,7 @@ impl VM {
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::SUBI32 => {
+            CRTOpCode::SUBI32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -192,14 +203,14 @@ impl VM {
                 let rhs_dataview = self.data_buffer_i32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::SUBI32;
+                let opcode = CRTOpCode::SUBI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::SUBF32 => {
+            CRTOpCode::SUBF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -207,7 +218,7 @@ impl VM {
                 let rhs_dataview = self.data_buffer_f32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::SUBF32;
+                let opcode = CRTOpCode::SUBF32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
@@ -215,8 +226,8 @@ impl VM {
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::MULI32 => {
-                // TODO merge logics together and pass the OpCode
+            CRTOpCode::MULI32 => {
+                // TODO merge logics together and pass the CRTOpCode
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -224,15 +235,15 @@ impl VM {
                 let rhs_dataview = self.data_buffer_i32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::MULI32;
+                let opcode = CRTOpCode::MULI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::MULF32 => {
-                // TODO merge logics together and pass the OpCode
+            CRTOpCode::MULF32 => {
+                // TODO merge logics together and pass the CRTOpCode
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -240,7 +251,7 @@ impl VM {
                 let rhs_dataview = self.data_buffer_f32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::MULF32;
+                let opcode = CRTOpCode::MULF32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
@@ -248,8 +259,8 @@ impl VM {
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::FLOORDIVI32 => {
-                // TODO merge logics together and pass the OpCode
+            CRTOpCode::FLOORDIVI32 => {
+                // TODO merge logics together and pass the CRTOpCode
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -257,15 +268,15 @@ impl VM {
                 let rhs_dataview = self.data_buffer_i32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::FLOORDIVI32;
+                let opcode = CRTOpCode::FLOORDIVI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 self.data_buffer_i32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::DIVF32 => {
-                // TODO merge logics together and pass the OpCode
+            CRTOpCode::DIVF32 => {
+                // TODO merge logics together and pass the CRTOpCode
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -273,7 +284,7 @@ impl VM {
                 let rhs_dataview = self.data_buffer_f32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::DIVF32;
+                let opcode = CRTOpCode::DIVF32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
@@ -281,7 +292,7 @@ impl VM {
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::MATMULF32 => {
+            CRTOpCode::MATMULF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
@@ -289,7 +300,7 @@ impl VM {
                 let rhs_dataview = self.data_buffer_f32.remove(&operand_rhs).unwrap();
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
-                let opcode = OpCode::MATMULF32;
+                let opcode = CRTOpCode::MATMULF32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
@@ -297,7 +308,7 @@ impl VM {
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
             }
-            OpCode::CONSTI32 => {
+            CRTOpCode::CONSTI32 => {
                 // TODO do some action, add data_buffer
                 // create lhs dataview
                 // TODO enable it
@@ -307,7 +318,7 @@ impl VM {
                 self.push_data_buffer_i32(operand_out, vec![operand_in_i32]);
                 Ok(0)
             }
-            OpCode::CONSTF32 => {
+            CRTOpCode::CONSTF32 => {
                 // TODO do some action, add data_buffer
                 // create lhs dataview
                 let operand_out = self.get_next_byte() as usize;
@@ -316,7 +327,7 @@ impl VM {
                 self.push_data_buffer_f32(operand_out, vec![operand_in_f32]);
                 Ok(0)
             }
-            OpCode::CONSTTENSOR => {
+            CRTOpCode::CONSTTENSOR => {
                 let operand_out = self.get_next_byte() as usize;
                 let data_size = self.decode_two_bytes_as_vec_size() as usize;
                 let raw_data_vec = self.decode_n_bytes_as_f32_vec(data_size);
@@ -325,7 +336,7 @@ impl VM {
                 self.push_tensor_buffer(operand_out, raw_data_vec, raw_shape_vec);
                 Ok(0)
             }
-            OpCode::SVALUETENSOR => {
+            CRTOpCode::SVALUETENSOR => {
                 let operand_out = self.get_next_byte() as usize;
                 let data_generator = self.get_next_four_bytes();
                 // TODO currently svalue is hardcoded as float
@@ -339,7 +350,7 @@ impl VM {
                 );
                 Ok(0)
             }
-            OpCode::RNGTENSOR => {
+            CRTOpCode::RNGTENSOR => {
                 let operand_out = self.get_next_byte() as usize;
                 let distribution = self.get_next_byte();
                 let shape_size = self.decode_two_bytes_as_vec_size() as usize;
@@ -527,7 +538,7 @@ mod tests {
         let mut vm = VM::new();
         vm.command_buffer = vec![0];
         let opcode = vm.fetch_instruction();
-        assert_eq!(opcode.unwrap(), OpCode::HALT);
+        assert_eq!(opcode.unwrap(), CRTOpCode::HALT);
     }
 
     #[test]

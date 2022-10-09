@@ -14,7 +14,7 @@ use crate::functor::*;
 use crate::instance::*;
 use crate::tensors::*;
 // use crate::vkgpu_executor::*;
-use crate::OpCode;
+use crate::CRTOpCode;
 
 // TODO-move to interpreter initialization
 use opentelemetry::global;
@@ -27,8 +27,8 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 // make it pub(crate) -> pub
 #[derive(Debug)]
 pub struct HostSession {
-    pub actor_system: ActorSystemHandle<ActExecutorTypes, ActTensorTypes, OpCode>,
-    // WIP pub actor_system: ActorSystemHandle<VkGPUExecutor, ActTensorTypes, OpCode>,
+    pub actor_system: ActorSystemHandle<ActExecutorTypes, ActTensorTypes, CRTOpCode>,
+    // WIP pub actor_system: ActorSystemHandle<VkGPUExecutor, ActTensorTypes, CRTOpCode>,
     pub async_runtime: tokio::runtime::Runtime,
 }
 
@@ -47,8 +47,8 @@ macro_rules! build_crt {
         let mut sys_builder = SystemBuilder::new();
         sys_config.set_ranks(0 as usize);
         let system =
-            sys_builder.build_with_config::<ActExecutorTypes, ActTensorTypes, OpCode>(sys_config);
-        // WIP sys_builder.build_with_config::<VkGPUExecutor, ActTensorTypes, OpCode>(sys_config);
+            sys_builder.build_with_config::<ActExecutorTypes, ActTensorTypes, CRTOpCode>(sys_config);
+        // WIP sys_builder.build_with_config::<VkGPUExecutor, ActTensorTypes, CRTOpCode>(sys_config);
         system
     }};
 }
@@ -173,7 +173,7 @@ impl HostSession {
 
     // pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
     //     &mut self,
-    //     opcode: OpCode,
+    //     opcode: CRTOpCode,
     //     lhs_tensor: TensorView<T>,
     //     rhs_tensor: TensorView<T>,
     //     // TODO-trial lowering UniBuffer range, to make session dev independent
@@ -186,10 +186,33 @@ impl HostSession {
     //     // self.device_context.device.stop_capture();
     //     outs
     // }
+    //
+    pub fn launch_unary_compute(
+        &mut self,
+        opcode: CRTOpCode,
+        in_tensor: ActTensorTypes,
+    ) -> ActTensorTypes {
+        let (send, recv) = oneshot::channel();
+        let opmsg = PayloadMessage::UnaryComputeFunctorMsg {
+            op: opcode,
+            inp: in_tensor,
+            respond_to: send,
+        };
+        info!("alpha - {:#?}", opmsg);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::PayloadMSG(opmsg))
+                .await;
+        });
+
+        let out_tensor = recv.blocking_recv().expect("no result after compute");
+        info!("beta - {:#?}", out_tensor);
+        out_tensor
+    }
 
     pub fn launch_binary_compute(
         &mut self,
-        opcode: OpCode,
+        opcode: CRTOpCode,
         lhs_tensor: ActTensorTypes,
         rhs_tensor: ActTensorTypes,
     ) -> ActTensorTypes {
@@ -258,7 +281,7 @@ mod tests {
         //         .memory_types,
         //     rhs_tensor_view,
         // );
-        let opcode = OpCode::ADDF32;
+        let opcode = CRTOpCode::ADDF32;
         let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
         assert_eq!(
             result_buffer,
@@ -285,7 +308,7 @@ mod tests {
         let rhs_tensor_view = ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
         };
-        let opcode = OpCode::SUBF32;
+        let opcode = CRTOpCode::SUBF32;
         let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
         assert_eq!(
             result_buffer,
@@ -312,7 +335,7 @@ mod tests {
         let rhs_tensor_view = ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
         };
-        let opcode = OpCode::MATMULF32;
+        let opcode = CRTOpCode::MATMULF32;
         let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
         assert_eq!(
             result_buffer,
