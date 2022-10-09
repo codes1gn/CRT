@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 #[cfg(any(feature = "blas", feature = "mock"))]
 use rublas::prelude::*;
+use tracing::{debug, info};
 
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +38,7 @@ pub struct VM {
 impl Drop for VM {
     fn drop(&mut self) {
         unsafe {
-            println!("CRT-VM dropping");
+            info!("CRT-VM dropping");
         };
     }
 }
@@ -64,7 +65,7 @@ impl VM {
             return Err(EmptyCmdBufferError);
         }
         let opcode = CRTOpCode::from(self.command_buffer[self.program_counter]);
-        println!("{:#?}", opcode);
+        info!("::vm::execute-instruction {:#?}", opcode);
         self.program_counter += 1;
         Ok(opcode)
     }
@@ -133,15 +134,15 @@ impl VM {
 
     // TODO may replace status with a enum
     fn step(&mut self) -> Result<u8, RuntimeStatusError> {
-        println!("start execute step");
+        info!("::vm::execute step eagerly");
         match self.fetch_instruction().unwrap() {
             CRTOpCode::HALT => {
-                println!("halt to exit");
+                info!("::vm::halt-vm");
                 // TODO move to base::const, use 1 as halt status
                 Ok(1)
             }
             CRTOpCode::ILLEGAL => {
-                println!("Illegal instruction found");
+                info!("::vm::halt-with-Illegal-Instruction");
                 Err(RuntimeStatusError)
             }
             CRTOpCode::LOAD => {
@@ -159,7 +160,9 @@ impl VM {
                 // TODO rename dataview into ActTensorTypes
                 let in_dataview = self.data_buffer_f32.remove(&operand_in).unwrap();
                 let opcode = CRTOpCode::EXPF32;
+                info!("::vm::call-session-launch-unary-compute sync-mode");
                 let outs = self.session.launch_unary_compute(opcode, in_dataview);
+                info!("::vm::store-ret-value with index #{:?}", operand_out);
                 self.data_buffer_f32.insert(operand_out, outs);
                 Ok(0)
             }
@@ -343,6 +346,10 @@ impl VM {
                 let data_generator_f32 = f32::from_le_bytes(data_generator);
                 let shape_size = self.decode_two_bytes_as_vec_size() as usize;
                 let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
+                info!(
+                    "::vm::generate+store tensor-value with index #{:?}",
+                    operand_out
+                );
                 self.push_tensor_buffer(
                     operand_out,
                     vec![data_generator_f32; raw_shape_vec.iter().product()],

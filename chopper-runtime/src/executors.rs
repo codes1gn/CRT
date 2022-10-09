@@ -7,6 +7,7 @@ use raptors::prelude::*;
 
 #[cfg(any(feature = "mock", feature = "blas"))]
 use rublas::prelude::*;
+use tracing::{debug, info};
 
 use crate::instruction::*;
 
@@ -47,15 +48,16 @@ impl ExecutorLike for ActExecutorTypes {
     fn init(&mut self) {
         match self {
             ActExecutorTypes::MockExecutor(_) => {
-                println!("no action in init");
+                info!("::mock-executor-init");
             }
             ActExecutorTypes::VkGPUExecutor(ref mut e) => {
+                info!("::vulkan-executor-init");
                 e.raw_init();
             }
 
             #[cfg(all(feature = "blas"))]
             ActExecutorTypes::BlasExecutor(_) => {
-                println!("no action in init");
+                info!("::blas-executor-init");
             }
 
             _ => panic!("not registered backend typeid"),

@@ -10,6 +10,12 @@ edition = "2021"
 name = "blastest"
 path = "blas-test/main.rs"
 
+# example case that is use to tune eager/lazy/parallel behaviours on differing data-dependency patterns
+# we use sequence (A -> B -> C); diamond (A -> B | C -> D)
+[[bin]]
+name = "datadep"
+path = "data-deps/main.rs"
+
 [[bin]]
 name = "crt_test"
 path = "crt-raptors/main.rs"

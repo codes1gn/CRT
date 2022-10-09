@@ -29,7 +29,7 @@ pub struct HostSession {
 impl Drop for HostSession {
     fn drop(&mut self) {
         unsafe {
-            println!("CRT-HostSession dropping");
+            info!("CRT-HostSession dropping");
         };
     }
 }
@@ -153,7 +153,14 @@ impl HostSession {
             inp: in_tensor,
             respond_to: send,
         };
-        debug!("alpha - {:#?}", opmsg);
+        info!(
+            "::launch_unary_compute::send msg to actor_system {:?}",
+            opmsg
+        );
+        debug!(
+            "::launch_unary_compute::send msg to actor_system {:#?}",
+            opmsg
+        );
         self.async_runtime.block_on(async {
             self.actor_system
                 .issue_order(RaptorMessage::PayloadMSG(opmsg))
@@ -161,7 +168,8 @@ impl HostSession {
         });
 
         let out_tensor = recv.blocking_recv().expect("no result after compute");
-        debug!("beta - {:#?}", out_tensor);
+        info!("::blocking_recv done with result {:?}", out_tensor);
+        debug!("::blocking_recv done with result {:#?}", out_tensor);
         out_tensor
     }
 
@@ -178,7 +186,14 @@ impl HostSession {
             rhs: rhs_tensor,
             respond_to: send,
         };
-        debug!("alpha - {:#?}", opmsg);
+        info!(
+            "::launch_binary_compute::send msg to actor_system {:?}",
+            opmsg
+        );
+        debug!(
+            "::launch_binary_compute::send msg to actor_system {:#?}",
+            opmsg
+        );
         self.async_runtime.block_on(async {
             self.actor_system
                 .issue_order(RaptorMessage::PayloadMSG(opmsg))
@@ -186,7 +201,8 @@ impl HostSession {
         });
 
         let out_tensor = recv.blocking_recv().expect("no result after compute");
-        debug!("beta - {:#?}", out_tensor);
+        info!("::blocking_recv done with result {:?}", out_tensor);
+        debug!("::blocking_recv done with result {:#?}", out_tensor);
         out_tensor
     }
 }

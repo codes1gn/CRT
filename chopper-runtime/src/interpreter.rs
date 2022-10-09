@@ -6,6 +6,8 @@ use float_eq::{assert_float_eq, float_eq};
 // replace log with tracing
 //
 // use log::{debug, info};
+
+#[cfg(any(feature = "blas", feature = "mock"))]
 use opentelemetry::global;
 use tracing::{debug, info};
 use tracing_subscriber::prelude::*;
@@ -37,15 +39,6 @@ impl Interpreter {
         }
     }
 
-    /*
-    pub fn bootstrap(&'a mut self) {
-        self.vm = VM::new(&self.hw_instance);
-    }
-
-    pub fn vm(&self) -> &mut VM {
-        self.vm.as_ref_mut().unwrap()
-    }
-    */
     pub fn init(&mut self, executor_cnt: usize) {
         // init tracing configuration
         #[cfg(any(feature = "mock", feature = "blas"))]
@@ -67,10 +60,10 @@ impl Interpreter {
             tracing_subscriber::fmt::try_init().unwrap();
             // env_logger.init();
         };
+        info!(" == CRT IPT initialization done == ");
 
         // init vm environments
         self.vm.init(executor_cnt);
-        info!(" == CRT IPT initialization done == ");
     }
 
     /// Accepts a hexadecimal string WITHOUT a leading `0x` and returns a Vec of u8
@@ -112,32 +105,32 @@ impl Interpreter {
     fn consume_command(&mut self, cmd_buffer: &str) -> Result<u8, RuntimeStatusError> {
         match cmd_buffer {
             "exit" | "quit" | "q" => {
-                println!("Chopper-Runtime Halt Now");
+                info!("Chopper-Runtime Halt Now");
                 // TODO make put this setting to base const, halt exit code use 1, else use 0
                 Ok(7)
             }
             "history" | "h" => {
                 for cmd in &self.history {
-                    println!("|-- {}", cmd);
+                    info!("|-- {}", cmd);
                 }
                 // TODO history cmd use 6 as status code
                 Ok(6)
             }
             "list" | "l" => {
-                println!("action: Showing instruction queue");
+                info!("action: Showing instruction queue");
                 for inst in self.vm.command_buffer() {
-                    println!("|-- {}", inst);
+                    info!("|-- {}", inst);
                 }
                 // TODO
                 Ok(5)
             }
             "display" | "watch" | "wt" => {
-                println!("action: Showing registers");
+                info!("action: Showing registers");
                 let mut reg_table = vec![];
                 for reg in self.vm.registers() {
                     reg_table.push(reg.clone());
                 }
-                println!("{:#?}", reg_table);
+                info!("{:#?}", reg_table);
                 // TODO
                 Ok(4)
             }
@@ -158,7 +151,7 @@ impl Interpreter {
     }
 
     pub fn run(&mut self) {
-        println!("~~~~~~~~~  Entering Chopper Runtime ~~~~~~~~~~");
+        info!("~~~~~~~~~  Entering Chopper Runtime ~~~~~~~~~~");
         loop {
             let mut cmd_buffer = String::new();
             let stdin = io::stdin();
@@ -182,7 +175,7 @@ impl Interpreter {
             }
             self.history.push(cmd_buffer.to_string());
         }
-        println!("~~~~~~~~ Exiting Chopper Runtime ~~~~~~~~");
+        info!("~~~~~~~~ Exiting Chopper Runtime ~~~~~~~~");
     }
 }
 
