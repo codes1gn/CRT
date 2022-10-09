@@ -5,7 +5,7 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 
 use raptors::prelude::*;
 
-#[cfg(all(feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "blas"))]
 use rublas::prelude::*;
 
 use crate::instruction;
@@ -159,6 +159,24 @@ impl ExecutorLike for ActExecutorTypes {
                             _ => panic!("dtype mismatch"),
                         }
                     }
+                    ActTensorTypes::I32Tensor { data } => {
+                        let lhs_data = data.into();
+                        match rhs_tensor {
+                            ActTensorTypes::I32Tensor { data } => {
+                                let rhs_data = data.into();
+                                let out = ActTensorTypes::I32Tensor {
+                                    // TODO tadd to be replace into binary and unary
+                                    // op to be handled
+                                    data: _executor
+                                        .binary_compute_owned(op.into(), lhs_data, rhs_data)
+                                        .into(),
+                                };
+                                // println!("{:#?}", out);
+                                return out;
+                            }
+                            _ => panic!("dtype mismatch"),
+                        }
+                    }
                     _ => panic!("dtype-comp not implemented"),
                 };
             }
@@ -167,29 +185,8 @@ impl ExecutorLike for ActExecutorTypes {
     }
 }
 
-#[cfg(all(feature = "blas"))]
-impl From<TensorView<f32>> for BlasTensor {
-    fn from(item: TensorView<f32>) -> Self {
-        BlasTensor::from_vec_shape(item.data, item.shape)
-    }
-}
-
-#[cfg(all(feature = "blas"))]
-impl From<BlasTensor> for TensorView<f32> {
-    fn from(item: BlasTensor) -> Self {
-        match item.data {
-            TensorKind::FloatVector(data) => {
-                TensorView::<f32>::new(data.into_raw_vec(), ElementType::F32, item.shape)
-            }
-            TensorKind::FloatMatrix(data) => {
-                TensorView::<f32>::new(data.into_raw_vec(), ElementType::F32, item.shape)
-            }
-            _ => panic!("not supported dtype"),
-        }
-    }
-}
-
 // TODO rename OpCode to ChopperOpCode
+// TODO refactor to dedicate mods
 #[cfg(feature = "blas")]
 impl From<instruction::OpCode> for BlasOpCode {
     fn from(item: instruction::OpCode) -> Self {
@@ -198,6 +195,10 @@ impl From<instruction::OpCode> for BlasOpCode {
             instruction::OpCode::SUBF32 => BlasOpCode::SubF,
             instruction::OpCode::MULF32 => BlasOpCode::MulF,
             instruction::OpCode::DIVF32 => BlasOpCode::DivF,
+            instruction::OpCode::ADDI32 => BlasOpCode::AddI,
+            instruction::OpCode::SUBI32 => BlasOpCode::SubI,
+            instruction::OpCode::MULI32 => BlasOpCode::MulI,
+            instruction::OpCode::FLOORDIVI32 => BlasOpCode::DivI,
             instruction::OpCode::MATMULF32 => BlasOpCode::GemmF,
             _ => panic!("conversion from ChopperOpCode to BlasOpCode not registered"),
         }
@@ -209,6 +210,13 @@ impl From<BlasOpCode> for instruction::OpCode {
     fn from(item: BlasOpCode) -> Self {
         match item {
             BlasOpCode::AddF => instruction::OpCode::ADDF32,
+            BlasOpCode::SubF => instruction::OpCode::SUBF32,
+            BlasOpCode::MulF => instruction::OpCode::MULF32,
+            BlasOpCode::DivF => instruction::OpCode::DIVF32,
+            BlasOpCode::AddI => instruction::OpCode::ADDI32,
+            BlasOpCode::SubI => instruction::OpCode::SUBI32,
+            BlasOpCode::MulI => instruction::OpCode::MULI32,
+            BlasOpCode::DivI => instruction::OpCode::FLOORDIVI32,
             BlasOpCode::GemmF => instruction::OpCode::MATMULF32,
             _ => panic!("conversion from BlasOpCode to ChopperOpCode not registered"),
         }

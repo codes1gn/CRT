@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+#[cfg(any(feature = "blas", feature = "mock"))]
 use rublas::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
 use crate::base::errors::EmptyCmdBufferError;
@@ -343,10 +345,8 @@ impl VM {
                 let shape_size = self.decode_two_bytes_as_vec_size() as usize;
                 let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
                 let _tensor = match distribution {
-                    0 => {
-                        // TODO make min-max adjustable
-                        BlasTensor::uniform(raw_shape_vec.clone(), -1f32, 1f32)
-                    }
+                    // TODO make min-max adjustable
+                    0 => BlasTensor::uniform(raw_shape_vec.clone(), -1f32, 1f32),
                     1 => BlasTensor::normal(raw_shape_vec.clone(), 0f32, 1f32),
                     _ => panic!("unknown rng category????"),
                 };

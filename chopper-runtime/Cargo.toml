@@ -52,6 +52,6 @@ features = ["extension-module"]
 # TODO add conditional-deps on features setting
 [features]
 default = ["backend-vulkan"]
-mock = ["backend-vulkan"]
+mock = ["backend-vulkan", "rublas"]
 vulkan = ["backend-vulkan"]
 blas = ["backend-vulkan", "rublas"]

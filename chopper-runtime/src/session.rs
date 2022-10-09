@@ -225,6 +225,7 @@ mod tests {
         assert_eq!(0, 0);
     }
 
+    #[cfg(not(feature = "mock"))]
     #[test]
     fn test_e2e_add() {
         let mut se = HostSession::new();
@@ -259,12 +260,16 @@ mod tests {
         // );
         let opcode = OpCode::ADDF32;
         let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
-        // let mut result_buffer = se.benchmark_run(opcode, lhs_dataview, rhs_dataview);
-        // TODO build helper for query ActTensorTypes types
-        // assert_eq!(result_buffer.data, vec!(12.0, 15.0, 20.0));
+        assert_eq!(
+            result_buffer,
+            ActTensorTypes::F32Tensor {
+                data: TensorView::<f32>::new(vec!(12.0, 15.0, 20.0), ElementType::F32, vec![3])
+                    .into(),
+            }
+        );
     }
 
-    // TODO wait blas-backend support sub
+    #[cfg(not(feature = "mock"))]
     #[test]
     fn test_e2e_sub() {
         let mut se = HostSession::new();
@@ -282,9 +287,16 @@ mod tests {
         };
         let opcode = OpCode::SUBF32;
         let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
-        // assert_eq!(result_buffer.data, vec!(-10.0, -11.0, -14.0));
+        assert_eq!(
+            result_buffer,
+            ActTensorTypes::F32Tensor {
+                data: TensorView::<f32>::new(vec!(-10.0, -11.0, -14.0), ElementType::F32, vec![3])
+                    .into(),
+            }
+        );
     }
 
+    #[cfg(not(feature = "mock"))]
     #[test]
     fn test_e2e_matmul() {
         let mut se = HostSession::new();
