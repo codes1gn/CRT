@@ -91,19 +91,18 @@ impl Interpreter {
         Ok(results)
     }
 
-    // interface wrapped for tests on interpreter
-    pub fn mock_operation(&mut self, cmd_buffer: &str) -> Result<u8, RuntimeStatusError> {
-        let status = self.consume_command(cmd_buffer);
-        status
+    pub fn run_bytecode(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
+        let parsed_program = parse_bytecode(CompleteStr(bytecode));
+        let (_, result_program) = parsed_program.expect("failed to parse bytecode");
+        let bytecode = result_program.to_bytes();
+        for byte in bytecode {
+            self.vm.push_bytecode_into_cmdbuffer(byte);
+        }
+        self.vm.run_eagerly()
     }
 
-    pub fn run_bytecode(&mut self, cmd_buffer: String) -> Result<u8, RuntimeStatusError> {
-        let status = self.consume_command(cmd_buffer.as_str());
-        status
-    }
-
-    fn consume_command(&mut self, cmd_buffer: &str) -> Result<u8, RuntimeStatusError> {
-        match cmd_buffer {
+    fn consume_command(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
+        match bytecode {
             "exit" | "quit" | "q" => {
                 info!("Chopper-Runtime Halt Now");
                 // TODO make put this setting to base const, halt exit code use 1, else use 0
@@ -134,26 +133,14 @@ impl Interpreter {
                 // TODO
                 Ok(4)
             }
-            _ => {
-                // parse bytecodes
-                let parsed_program = parse_bytecode(CompleteStr(cmd_buffer));
-                let (_, result_program) = parsed_program.expect("failed to parse bytecode");
-                let bytecode = result_program.to_bytes();
-                for byte in bytecode {
-                    self.vm.push_bytecode_into_cmdbuffer(byte);
-                }
-                self.vm.run_once().expect("execution status not correct");
-                // TODO return the parse and execute status not handle return here
-                // TODO use code 0 temparilly
-                Ok(0)
-            }
+            _ => self.run_bytecode(bytecode),
         }
     }
 
     pub fn run(&mut self) {
         info!("~~~~~~~~~  Entering Chopper Runtime ~~~~~~~~~~");
         loop {
-            let mut cmd_buffer = String::new();
+            let mut bytecode = String::new();
             let stdin = io::stdin();
 
             // show >> prompts
@@ -162,18 +149,20 @@ impl Interpreter {
 
             // blocking until inputs come
             stdin
-                .read_line(&mut cmd_buffer)
+                .read_line(&mut bytecode)
                 .expect("error: Failed to read user inputs");
-            let cmd_buffer = cmd_buffer.trim();
+            let bytecode = bytecode.trim();
             // after handling this command, add it to the history list
-            let step_status = self.consume_command(&cmd_buffer);
+            let step_status = self.consume_command(&bytecode);
             match step_status {
-                Ok(exit_code) => (),
-                Err(error_code) => {
-                    break;
-                }
+                Ok(_) => info!("::ipt::should not happen - status ok"),
+                Err(e) => match e {
+                    RuntimeStatusError::RT_ERROR => panic!("::ipt::RT status incorrect"),
+                    // TODO use OK rather Err for program_finish
+                    RuntimeStatusError::EXEC_FINISH => info!("::ipt::computation-finish"),
+                },
             }
-            self.history.push(cmd_buffer.to_string());
+            self.history.push(bytecode.to_string());
         }
         info!("~~~~~~~~ Exiting Chopper Runtime ~~~~~~~~");
     }
@@ -202,7 +191,7 @@ mod tests {
     #[test]
     fn test_mock_halt() {
         let mut ipt = Interpreter::new();
-        let status = ipt.mock_operation("quit");
+        let status = ipt.run_bytecode("quit");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 7);
@@ -211,7 +200,7 @@ mod tests {
     #[test]
     fn test_mock_history() {
         let mut ipt = Interpreter::new();
-        let status = ipt.mock_operation("history");
+        let status = ipt.run_bytecode("history");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 6);
@@ -220,7 +209,7 @@ mod tests {
     #[test]
     fn test_mock_list() {
         let mut ipt = Interpreter::new();
-        let status = ipt.mock_operation("list");
+        let status = ipt.run_bytecode("list");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 5);
@@ -229,7 +218,7 @@ mod tests {
     #[test]
     fn test_mock_bytecode_halt() {
         let mut ipt = Interpreter::new();
-        let status = ipt.mock_operation("halt");
+        let status = ipt.run_bytecode("halt");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -242,7 +231,7 @@ mod tests {
         ipt.init(2);
         // ok
         // TODO make runtime check on matching const.i32 and i32 type annotation
-        let status = ipt.mock_operation("%17 = crt.literal.const.i32! 13 : i32\n");
+        let status = ipt.run_bytecode("%17 = crt.literal.const.i32! 13 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -255,7 +244,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
+        let status = ipt.run_bytecode("%8 = crt.literal.const.f32! 1.3 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -268,7 +257,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%8 = crt.helper.svalue.tensor! zeros<[8 3]> : f32\n");
+        let status = ipt.run_bytecode("%8 = crt.helper.svalue.tensor! zeros<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -281,7 +270,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%8 = crt.helper.svalue.tensor! ones<[8 3]> : f32\n");
+        let status = ipt.run_bytecode("%8 = crt.helper.svalue.tensor! ones<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -294,7 +283,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(1);
         // ok
-        let status = ipt.mock_operation("%8 = crt.helper.rng.tensor! uniform<[8 3]> : f32\n");
+        let status = ipt.run_bytecode("%8 = crt.helper.rng.tensor! uniform<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -306,7 +295,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(1);
         // ok
-        let status = ipt.mock_operation("%8 = crt.helper.rng.tensor! normal<[8 3]> : f32\n");
+        let status = ipt.run_bytecode("%8 = crt.helper.rng.tensor! normal<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -318,8 +307,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -329,7 +318,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.add.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode("%3 = crt.add.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -342,8 +331,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -353,7 +342,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.sub.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode("%3 = crt.sub.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -366,8 +355,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -377,7 +366,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.mul.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode("%3 = crt.mul.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -390,8 +379,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -401,7 +390,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.floordiv.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode("%3 = crt.floordiv.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -414,8 +403,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.i32! 7 : i32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 7 : i32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -425,7 +414,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.floordiv.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode("%3 = crt.floordiv.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -438,8 +427,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -449,7 +438,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.add.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode("%3 = crt.add.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -462,8 +451,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -473,7 +462,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.sub.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode("%3 = crt.sub.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -486,8 +475,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -497,7 +486,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.mul.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode("%3 = crt.mul.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -510,8 +499,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.mock_operation("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -521,7 +510,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.mock_operation("%3 = crt.div.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode("%3 = crt.div.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -534,9 +523,9 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%8 = crt.literal.const.i32! 3 : i32\n");
-        let status = ipt.mock_operation("%7 = crt.literal.const.i32! 2 : i32\n");
-        let status = ipt.mock_operation("%1 = crt.literal.const.i32! 7 : i32\n");
+        let status = ipt.run_bytecode("%8 = crt.literal.const.i32! 3 : i32\n");
+        let status = ipt.run_bytecode("%7 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 7 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -546,14 +535,14 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(7), vec![2]);
 
         // add
-        let status = ipt.mock_operation("%4 = crt.add.i32! %8, %7 : i32\n");
+        let status = ipt.run_bytecode("%4 = crt.add.i32! %8, %7 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_eq!(*ipt.vm.get_idata(4), vec![5]);
 
         // sub
-        let status = ipt.mock_operation("%5 = crt.sub.i32! %1, %4 : i32\n");
+        let status = ipt.run_bytecode("%5 = crt.sub.i32! %1, %4 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -567,9 +556,9 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
-        let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
-        let status = ipt.mock_operation("%1 = crt.literal.const.f32! 7.4 : f32\n");
+        let status = ipt.run_bytecode("%8 = crt.literal.const.f32! 1.3 : f32\n");
+        let status = ipt.run_bytecode("%7 = crt.literal.const.f32! 2.9 : f32\n");
+        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 7.4 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -579,14 +568,14 @@ mod tests {
         assert_eq!(*ipt.vm.get_fdata(7), vec![2.9]);
 
         // add
-        let status = ipt.mock_operation("%4 = crt.add.f32! %8, %7 : f32\n");
+        let status = ipt.run_bytecode("%4 = crt.add.f32! %8, %7 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_float_eq!(*ipt.vm.get_fdata(4), vec![4.2], rmax_all <= 0.00001);
 
         // sub
-        let status = ipt.mock_operation("%5 = crt.sub.f32! %1, %4 : f32\n");
+        let status = ipt.run_bytecode("%5 = crt.sub.f32! %1, %4 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -599,10 +588,10 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
         );
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%1 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>\n",
         );
         assert_eq!(status.is_ok(), true);
@@ -624,7 +613,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_fshape(1), vec![2, 3]);
 
         // add
-        let status = ipt.mock_operation("%4 = crt.add.f32! %0, %1 : f32\n");
+        let status = ipt.run_bytecode("%4 = crt.add.f32! %0, %1 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -640,10 +629,10 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
         );
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%7 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>\n",
         );
         assert_eq!(status.is_ok(), true);
@@ -665,7 +654,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_fshape(7), vec![2, 3]);
 
         // sub
-        let status = ipt.mock_operation("%5 = crt.sub.f32! %7, %9 : f32\n");
+        let status = ipt.run_bytecode("%5 = crt.sub.f32! %7, %9 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -682,10 +671,10 @@ mod tests {
         ipt.init(2);
         // ok
         // matmul(3x2, 2x3) => (3x3)
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%9 = crt.literal.const.tensor! dense<[1. 2. 3. 4. 5. 6.], shape=[2 3]>\n",
         );
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%7 = crt.literal.const.tensor! dense<[1. 1. 1. 1. 1. 1.], shape=[3 2]>\n",
         );
         assert_eq!(status.is_ok(), true);
@@ -707,7 +696,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_fshape(7), vec![3, 2]);
 
         // matmul, temparilly faked with add
-        let status = ipt.mock_operation("%5 = crt.matmul.f32! %7, %9 : f32\n");
+        let status = ipt.run_bytecode("%5 = crt.matmul.f32! %7, %9 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -717,13 +706,13 @@ mod tests {
             rmax_all <= 0.00001
         );
 
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%9 = crt.literal.const.tensor! dense<[1. 2. 3. 4. 5. 6.], shape=[2 3]>\n",
         );
-        let status = ipt.mock_operation(
+        let status = ipt.run_bytecode(
             "%7 = crt.literal.const.tensor! dense<[1. 1. 1. 1. 1. 1.], shape=[3 2]>\n",
         );
-        let status = ipt.mock_operation("%6 = crt.matmul.f32! %9, %7 : f32\n");
+        let status = ipt.run_bytecode("%6 = crt.matmul.f32! %9, %7 : f32\n");
         assert_float_eq!(
             *ipt.vm.get_fdata(6),
             vec![6., 6., 15., 15.],
@@ -738,13 +727,13 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(3);
 
-        ipt.mock_operation("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
-        ipt.mock_operation("%1 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode("%1 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
 
         // TODO svalue<[shape], 0.7>
-        // ipt.mock_operation("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        // ipt.run_bytecode("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
 
-        ipt.run_bytecode("%3 = crt.add.f32! %1, %0 : f32\n".to_string());
+        ipt.run_bytecode("%3 = crt.add.f32! %1, %0 : f32\n");
         assert_float_eq!(
             *ipt.vm.get_fdata(3),
             vec![2.0; 34 * 82 * 3],

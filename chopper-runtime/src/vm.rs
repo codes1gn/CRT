@@ -6,8 +6,7 @@ use tracing::{debug, info};
 
 use serde::{Deserialize, Serialize};
 
-use crate::base::errors::EmptyCmdBufferError;
-use crate::base::errors::RuntimeStatusError;
+use crate::base::errors::*;
 use crate::base::*;
 use crate::instruction::CRTOpCode;
 
@@ -60,9 +59,9 @@ impl VM {
         self.session.init(executor_cnt);
     }
 
-    fn fetch_instruction(&mut self) -> Result<CRTOpCode, EmptyCmdBufferError> {
+    fn fetch_instruction(&mut self) -> Result<CRTOpCode, RuntimeStatusError> {
         if self.program_counter > self.command_buffer.len() {
-            return Err(EmptyCmdBufferError);
+            return Err(RuntimeStatusError::EXEC_FINISH);
         }
         let opcode = CRTOpCode::from(self.command_buffer[self.program_counter]);
         info!("::vm::execute-instruction {:#?}", opcode);
@@ -133,7 +132,7 @@ impl VM {
     }
 
     // TODO may replace status with a enum
-    fn step(&mut self) -> Result<u8, RuntimeStatusError> {
+    fn eager_step_impl(&mut self) -> Result<u8, RuntimeStatusError> {
         info!("::vm::execute step eagerly");
         match self.fetch_instruction().unwrap() {
             CRTOpCode::HALT => {
@@ -143,7 +142,7 @@ impl VM {
             }
             CRTOpCode::ILLEGAL => {
                 info!("::vm::halt-with-Illegal-Instruction");
-                Err(RuntimeStatusError)
+                Err(RuntimeStatusError::RT_ERROR)
             }
             CRTOpCode::LOAD => {
                 let register_id = self.get_next_byte() as usize;
@@ -424,6 +423,7 @@ impl VM {
     }
 
     pub fn get_fdata(&self, index: usize) -> &Vec<f32> {
+        // TODO add guard for array-access-by-index
         match &self.data_buffer_f32[&index] {
             ActTensorTypes::F32Tensor { data } => &data.data,
             _ => panic!("not support int types"),
@@ -475,22 +475,24 @@ impl VM {
     }
 
     // entry functions for execute, that is public
-    pub fn run_once(&mut self) -> Result<u8, RuntimeStatusError> {
-        self.step()
+    pub fn eager_step(&mut self) -> Result<u8, RuntimeStatusError> {
+        info!("::vm::eager-step");
+        if self.program_counter >= self.command_buffer.len() {
+            info!("::vm::cmd-buffer empty >> halt");
+            return Err(RuntimeStatusError::EXEC_FINISH);
+        }
+        self.eager_step_impl()
     }
 
     // TODO modify the return into statuscode
-    pub fn run(&mut self) -> Result<u8, RuntimeStatusError> {
-        // println!("start to execute");
+    pub fn run_eagerly(&mut self) -> Result<u8, RuntimeStatusError> {
+        info!("::vm::run-eagerly");
         loop {
-            if self.program_counter >= self.command_buffer.len() {
-                // println!("end of execution");
-                return Ok(0);
-            }
-            let status = self.step();
+            let status = self.eager_step();
             match status {
-                // do nothing if status ok
-                Ok(_) => {}
+                Ok(_) => {
+                    info!("continue ");
+                }
                 Err(_) => return status,
             }
         }
@@ -513,7 +515,7 @@ mod tests {
         let mut vm = VM::new();
         vm.init(2);
         vm.command_buffer = vec![0, 0, 0];
-        let exit_code = vm.run_once();
+        let exit_code = vm.eager_step();
         assert_eq!(exit_code.is_ok(), true);
         let u8_exit_code = exit_code.unwrap();
         assert_eq!(u8_exit_code, 1);
@@ -525,8 +527,9 @@ mod tests {
         let mut vm = VM::new();
         vm.init(2);
         vm.command_buffer = vec![];
-        let exit_code = vm.run();
-        assert_eq!(exit_code.is_ok(), true);
+        let exit_code = vm.eager_step();
+        // TODO to use Ok(program_finish)
+        assert_eq!(exit_code.is_err(), true);
         assert_eq!(vm.program_counter, 0);
     }
 
@@ -535,7 +538,7 @@ mod tests {
         let mut vm = VM::new();
         vm.command_buffer = vec![255];
         vm.init(2);
-        let exit_code = vm.run();
+        let exit_code = vm.eager_step();
         assert_eq!(exit_code.is_ok(), false);
         assert_eq!(vm.program_counter, 1);
     }

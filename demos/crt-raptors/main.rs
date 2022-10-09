@@ -16,21 +16,21 @@ use chopper_runtime::prelude::*;
 fn test_pressure() {
     let mut ipt = Interpreter::new();
     // ok
-    let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
-    let status = ipt.mock_operation("%1 = crt.literal.const.f32! 7.4 : f32\n");
+    let status = ipt.run_bytecode("%0 = crt.literal.const.f32! 1.3 : f32\n");
+    let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 7.4 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
 
     // add
-    let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
+    let status = ipt.run_bytecode("%1 = crt.add.f32! %0, %1 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
     assert_float_eq!(*ipt.vm.get_fdata(1), vec![8.7], rmax_all <= 0.00001);
 
-    let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
-    let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
+    let status = ipt.run_bytecode("%0 = crt.literal.const.f32! 1.3 : f32\n");
+    let status = ipt.run_bytecode("%1 = crt.add.f32! %0, %1 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
@@ -38,8 +38,8 @@ fn test_pressure() {
 
     let start = Instant::now();
     for k in 1..5000 {
-        let status = ipt.mock_operation("%0 = crt.literal.const.f32! 1.3 : f32\n");
-        let status = ipt.mock_operation("%1 = crt.add.f32! %0, %1 : f32\n");
+        let status = ipt.run_bytecode("%0 = crt.literal.const.f32! 1.3 : f32\n");
+        let status = ipt.run_bytecode("%1 = crt.add.f32! %0, %1 : f32\n");
         if k % 100 == 0 {
             println!("step {}", k);
         }
@@ -52,9 +52,9 @@ fn test_pressure() {
 fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
     let mut ipt = Interpreter::new();
     // ok
-    let status = ipt.mock_operation("%8 = crt.literal.const.f32! 1.3 : f32\n");
-    let status = ipt.mock_operation("%7 = crt.literal.const.f32! 2.9 : f32\n");
-    let status = ipt.mock_operation("%1 = crt.literal.const.f32! 7.4 : f32\n");
+    let status = ipt.run_bytecode("%8 = crt.literal.const.f32! 1.3 : f32\n");
+    let status = ipt.run_bytecode("%7 = crt.literal.const.f32! 2.9 : f32\n");
+    let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 7.4 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
@@ -64,14 +64,14 @@ fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
     assert_eq!(*ipt.vm.get_fdata(7), vec![2.9]);
 
     // add
-    let status = ipt.mock_operation("%4 = crt.add.f32! %8, %7 : f32\n");
+    let status = ipt.run_bytecode("%4 = crt.add.f32! %8, %7 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
     assert_float_eq!(*ipt.vm.get_fdata(4), vec![4.2], rmax_all <= 0.00001);
 
     // sub
-    let status = ipt.mock_operation("%5 = crt.sub.f32! %1, %4 : f32\n");
+    let status = ipt.run_bytecode("%5 = crt.sub.f32! %1, %4 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
@@ -81,10 +81,10 @@ fn test_mock_bytecode_f32_binary_add_then_sub_f32() {
 
 fn test_mock_run() {
     let mut ipt = Interpreter::new();
-    let status = ipt.mock_operation(
+    let status = ipt.run_bytecode(
         "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
     );
-    let status = ipt.mock_operation(
+    let status = ipt.run_bytecode(
         "%7 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>\n",
     );
     assert_eq!(status.is_ok(), true);
@@ -106,7 +106,7 @@ fn test_mock_run() {
     assert_eq!(*ipt.vm.get_fshape(7), vec![2, 3]);
 
     // sub
-    let status = ipt.mock_operation("%5 = crt.sub.f32! %7, %9 : f32\n");
+    let status = ipt.run_bytecode("%5 = crt.sub.f32! %7, %9 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
@@ -127,7 +127,7 @@ fn test_bytecode_run() {
     ipt.vm.push_tensor_buffer(0, data0, vec![1, 3]);
     ipt.vm.push_tensor_buffer(1, data1, vec![1, 3]);
 
-    ipt.run_bytecode("%4 = crt.add.f32! %1, %0 : f32\n".to_string());
+    ipt.run_bytecode("%4 = crt.add.f32! %1, %0 : f32\n");
     assert_float_eq!(
         *ipt.vm.get_fdata(4),
         vec![2.2, 4.4, 6.6],

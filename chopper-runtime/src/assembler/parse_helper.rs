@@ -7,12 +7,14 @@ use super::parse_literal::parse_integer_list;
 use super::parse_type::*;
 
 // "crt.helper.zeros<[2 3]>"
+// TODO accept other types
 named!(pub parse_helper_zeros<CompleteStr, Token>,
     do_parse!(
         _sp: space0 >>
         tag!("zeros<") >>
         _shape: parse_integer_list >>
         tag!(">") >>
+        type_tag: parse_f32_type >>
         (
             Token::UninitTensor { data_generator: 0f32, shape: _shape }
         )
@@ -26,6 +28,7 @@ named!(pub parse_helper_ones<CompleteStr, Token>,
         tag!("ones<") >>
         _shape: parse_integer_list >>
         tag!(">") >>
+        type_tag: parse_f32_type >>
         (
             Token::UninitTensor { data_generator: 1f32, shape: _shape }
         )
@@ -39,6 +42,7 @@ named!(pub parse_helper_uniform<CompleteStr, Token>,
         tag!("uniform<") >>
         _shape: parse_integer_list >>
         tag!(">") >>
+        type_tag: parse_f32_type >>
         (
             Token::UninitRNGTensor { distribution: 0 as u8, shape: _shape }
         )
@@ -52,6 +56,7 @@ named!(pub parse_helper_normal<CompleteStr, Token>,
         tag!("normal<") >>
         _shape: parse_integer_list >>
         tag!(">") >>
+        type_tag: parse_f32_type >>
         (
             Token::UninitRNGTensor { distribution: 1 as u8, shape: _shape }
         )
@@ -65,7 +70,7 @@ mod tests {
     #[test]
     fn test_parse_helper_zeros() {
         // w.o. \n
-        let result = parse_helper_zeros(CompleteStr("zeros<[2 3 1]>"));
+        let result = parse_helper_zeros(CompleteStr("zeros<[2 3 1]>: f32"));
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
         assert_eq!(
@@ -80,7 +85,7 @@ mod tests {
     #[test]
     fn test_parse_helper_ones() {
         // w.o. \n
-        let result = parse_helper_ones(CompleteStr("ones<[2 3 1]>"));
+        let result = parse_helper_ones(CompleteStr("ones<[2 3 1]>: f32"));
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
         assert_eq!(
@@ -95,7 +100,7 @@ mod tests {
     #[test]
     fn test_parse_helper_uniform() {
         // w.o. \n
-        let result = parse_helper_uniform(CompleteStr("uniform<[2 3 1]>"));
+        let result = parse_helper_uniform(CompleteStr("uniform<[2 3 1]>: f32"));
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
         assert_eq!(
@@ -110,7 +115,7 @@ mod tests {
     #[test]
     fn test_parse_helper_normal() {
         // w.o. \n
-        let result = parse_helper_normal(CompleteStr("normal<[2 3 1]>"));
+        let result = parse_helper_normal(CompleteStr("normal<[2 3 1]>: f32"));
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
         assert_eq!(

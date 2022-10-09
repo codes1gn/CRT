@@ -2,6 +2,7 @@
 use nom::types::CompleteStr;
 use nom::*;
 
+use super::parse_type::*;
 use crate::assembler::assembler_base::Token;
 
 named!(pub parse_operand <CompleteStr, Token>,
@@ -10,6 +11,24 @@ named!(pub parse_operand <CompleteStr, Token>,
             tag!("%") >>
             //lab_symbol: alphanumeric1 >>
             lab_symbol: digit >>
+            (
+                Token::Variable{
+                  symbol: lab_symbol.parse::<u8>().unwrap(),
+                  // symbol: lab_symbol.parse::<String>().unwrap(),
+                }
+            )
+        )
+    )
+);
+
+named!(pub parse_operand_with_type <CompleteStr, Token>,
+    ws!(
+        do_parse!(
+            tag!("%") >>
+            //lab_symbol: alphanumeric1 >>
+            lab_symbol: digit >>
+            // TODO hardcoded to f32, consider how types suits operand
+            type_tag: parse_f32_type >>
             (
                 Token::Variable{
                   symbol: lab_symbol.parse::<u8>().unwrap(),

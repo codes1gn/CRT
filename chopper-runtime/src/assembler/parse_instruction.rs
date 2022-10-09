@@ -78,7 +78,7 @@ named!(
         _s1: space0 >>
         opcode: parse_opcode >>
         in_operand: alt!(
-            parse_operand
+            parse_operand_with_type
             | parse_float_literal_with_type
             | parse_integer_literal_with_type
             | parse_tensor_literal
@@ -202,7 +202,7 @@ mod tests {
     fn test_instruction_tensor_literal() {
         // w. \n
         let result = parse_instruction(CompleteStr(
-            "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
+            "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>: f32\n",
         ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
@@ -229,8 +229,9 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_zeros_helper() {
         // w. \n
-        let result =
-            parse_instruction(CompleteStr("%0 = crt.helper.svalue.tensor! zeros<[2 3]>\n"));
+        let result = parse_instruction(CompleteStr(
+            "%0 = crt.helper.svalue.tensor! zeros<[2 3]>: f32\n",
+        ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
@@ -247,7 +248,9 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_ones_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr("%0 = crt.helper.svalue.tensor! ones<[2 3]>\n"));
+        let result = parse_instruction(CompleteStr(
+            "%0 = crt.helper.svalue.tensor! ones<[2 3]>: f32\n",
+        ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
@@ -264,7 +267,9 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_uniform_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr("%0 = crt.helper.rng.tensor! uniform<[2 3]>\n"));
+        let result = parse_instruction(CompleteStr(
+            "%0 = crt.helper.rng.tensor! uniform<[2 3]>: f32\n",
+        ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
@@ -281,7 +286,9 @@ mod tests {
     #[test]
     fn test_instruction_tensor_literal_with_normal_helper() {
         // w. \n
-        let result = parse_instruction(CompleteStr("%0 = crt.helper.rng.tensor! normal<[2 3]>\n"));
+        let result = parse_instruction(CompleteStr(
+            "%0 = crt.helper.rng.tensor! normal<[2 3]>: f32\n",
+        ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();

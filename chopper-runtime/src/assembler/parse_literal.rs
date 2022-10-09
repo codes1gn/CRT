@@ -16,6 +16,7 @@ named!(pub parse_numeric_literal<CompleteStr, Token>,
     )
 );
 
+// TODO with type, need a none-type version
 // "dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>"
 named!(pub parse_tensor_literal<CompleteStr, Token>,
     do_parse!(
@@ -25,6 +26,7 @@ named!(pub parse_tensor_literal<CompleteStr, Token>,
         tag!(", shape=") >>
         shapelist: parse_integer_list >>
         tag!(">") >>
+        type_tag: parse_f32_type >>
         (
             Token::Tensor { raw_data: datalist, shape: shapelist }
         )
@@ -218,8 +220,9 @@ mod tests {
     #[test]
     fn test_parse_tensor_literal() {
         // w.o. \n
-        let result =
-            parse_tensor_literal(CompleteStr("dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>"));
+        let result = parse_tensor_literal(CompleteStr(
+            "dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>: f32",
+        ));
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
         assert_eq!(
