@@ -3,7 +3,9 @@ use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr, sync
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
 use raptors::prelude::*;
+use tokio::io::Result;
 use tokio::sync::oneshot;
+use tracing::{debug, info};
 
 use crate::base::kernel::*;
 use crate::base::*;
@@ -15,14 +17,6 @@ use crate::instance::*;
 use crate::tensors::*;
 // use crate::vkgpu_executor::*;
 use crate::CRTOpCode;
-
-// TODO-move to interpreter initialization
-use opentelemetry::global;
-use tokio::io::Result;
-// TODO(avoid bug): use tracing::info;
-use log::{debug, info};
-use tracing_subscriber::prelude::*;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 // make it pub(crate) -> pub
 #[derive(Debug)]
@@ -55,49 +49,10 @@ macro_rules! build_crt {
 
 impl HostSession {
     pub fn new() -> HostSession {
-        // init raptors env
-        // TODO(debug) fix to allow tracing with vk_device, perhaps backend vulkan uses env_logger
-        // this causes conflict
-        std::env::set_var("RUST_LOG", "info");
-        // if std::env::args().any(|arg| arg == "--trace") {
-        //     global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
-        //     let tracer = opentelemetry_jaeger::new_pipeline()
-        //         .with_service_name("raptors")
-        //         .install_simple()
-        //         .unwrap();
-
-        //     let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-        //     tracing_subscriber::registry()
-        //         .with(opentelemetry)
-        //         .with(fmt::Layer::default())
-        //         .try_init()
-        //         .unwrap();
-        // } else {
-        //     //tracing_subscriber::fmt::try_init().unwrap();
-        //     env_logger.init();
-        // };
-
-        // perform raptors actions
-        // let system = {
-        //     let mut sys_config = SystemConfig::new($name, "info");
-        //     let mut sys_builder = SystemBuilder::new();
-        //     sys_config.set_ranks(0 as usize);
-        //     let system = sys_builder.build_with_config::<MockExecutor, MockTensor>(sys_config);
-        //     system
-        // };
-        //
-        // spawn actors, in the dev, we try with two actors
-        // one with vk device context that owns the gpu
-        // the other works with CPU
-        // TODO: add a CPU high perf lib, maybe rayon
-        // TODO: maybe remove Clone requirements for type parameter U = TensorView<f32>
-        //
-
         let asrt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
-
         let syst = asrt.block_on(async {
             let mut system = build_crt!("Raptors");
             // TODO move this init out of new with init: with config setting (num of each type of
@@ -198,7 +153,7 @@ impl HostSession {
             inp: in_tensor,
             respond_to: send,
         };
-        info!("alpha - {:#?}", opmsg);
+        debug!("alpha - {:#?}", opmsg);
         self.async_runtime.block_on(async {
             self.actor_system
                 .issue_order(RaptorMessage::PayloadMSG(opmsg))
@@ -206,7 +161,7 @@ impl HostSession {
         });
 
         let out_tensor = recv.blocking_recv().expect("no result after compute");
-        info!("beta - {:#?}", out_tensor);
+        debug!("beta - {:#?}", out_tensor);
         out_tensor
     }
 
@@ -223,7 +178,7 @@ impl HostSession {
             rhs: rhs_tensor,
             respond_to: send,
         };
-        info!("alpha - {:#?}", opmsg);
+        debug!("alpha - {:#?}", opmsg);
         self.async_runtime.block_on(async {
             self.actor_system
                 .issue_order(RaptorMessage::PayloadMSG(opmsg))
@@ -231,7 +186,7 @@ impl HostSession {
         });
 
         let out_tensor = recv.blocking_recv().expect("no result after compute");
-        info!("beta - {:#?}", out_tensor);
+        debug!("beta - {:#?}", out_tensor);
         out_tensor
     }
 }

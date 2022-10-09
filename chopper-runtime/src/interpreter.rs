@@ -2,6 +2,15 @@ extern crate float_eq;
 
 use float_eq::{assert_float_eq, float_eq};
 
+// use tracing related mods
+// replace log with tracing
+//
+// use log::{debug, info};
+use opentelemetry::global;
+use tracing::{debug, info};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
 use nom::types::CompleteStr;
 use std;
 use std::io;
@@ -38,7 +47,30 @@ impl Interpreter {
     }
     */
     pub fn init(&mut self, executor_cnt: usize) {
+        // init tracing configuration
+        #[cfg(any(feature = "mock", feature = "blas"))]
+        std::env::set_var("RUST_LOG", "info");
+        if std::env::args().any(|arg| arg == "--trace") {
+            global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+            let tracer = opentelemetry_jaeger::new_pipeline()
+                .with_service_name("raptors")
+                .install_simple()
+                .unwrap();
+
+            let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+            tracing_subscriber::registry()
+                .with(opentelemetry)
+                .with(fmt::Layer::default())
+                .try_init()
+                .unwrap();
+        } else {
+            tracing_subscriber::fmt::try_init().unwrap();
+            // env_logger.init();
+        };
+
+        // init vm environments
         self.vm.init(executor_cnt);
+        info!(" == CRT IPT initialization done == ");
     }
 
     /// Accepts a hexadecimal string WITHOUT a leading `0x` and returns a Vec of u8

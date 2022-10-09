@@ -221,7 +221,7 @@ impl VkGPUExecutor {
 // kaigao
 // WIP impl ExecutorLike for VkGPUExecutor {
 // WIP     type TensorType = ActTensorTypes;
-// WIP     type CRTOpCodeType = CRTOpCode;
+// WIP     type OpCodeType = CRTOpCode;
 // WIP     fn new() -> VkGPUExecutor {
 // WIP         let mut di = DeviceInstance::new();
 // WIP         let mut device_and_queue = di.device_and_queue();
@@ -278,14 +278,14 @@ impl VkGPUExecutor {
 // WIP         wkl
 // WIP     }
 // WIP
-// WIP     fn unary_compute(&mut self, op: Self::CRTOpCodeType, lhs: Self::TensorType) -> Self::TensorType {
+// WIP     fn unary_compute(&mut self, op: Self::OpCodeType, lhs: Self::TensorType) -> Self::TensorType {
 // WIP         // println!("============ on computing unary =============");
 // WIP         lhs
 // WIP     }
 // WIP
 // WIP     fn binary_compute(
 // WIP         &mut self,
-// WIP         op: Self::CRTOpCodeType,
+// WIP         op: Self::OpCodeType,
 // WIP         lhs_tensor: Self::TensorType,
 // WIP         rhs_tensor: Self::TensorType,
 // WIP     ) -> Self::TensorType {
