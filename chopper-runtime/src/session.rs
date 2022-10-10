@@ -126,23 +126,12 @@ impl HostSession {
         })
     }
 
-    // pub fn benchmark_run<T: SupportedType + std::clone::Clone + std::default::Default>(
-    //     &mut self,
-    //     opcode: CRTOpCode,
-    //     lhs_tensor: TensorView<T>,
-    //     rhs_tensor: TensorView<T>,
-    //     // TODO-trial lowering UniBuffer range, to make session dev independent
-    //     // lhs_dataview: UniBuffer<concrete_backend::Backend, T>,
-    //     // rhs_dataview: UniBuffer<concrete_backend::Backend, T>,
-    //     // ) -> UniBuffer<concrete_backend::Backend, T> {
-    // ) -> TensorView<T> {
-    //     // self.device_context.device.start_capture();
-    //     // let outs = self.run_default(opcode, lhs_tensor, rhs_tensor);
-    //     // self.device_context.device.stop_capture();
-    //     outs
-    // }
-    //
-    pub fn launch_unary_compute(
+    // TODO exec_mode = 
+    // 0u8, eager + blocking + owned
+    // 1u8, eager + blocking + borrowed
+    // 2u8, eager + non-blocking + borrowed
+    // 3u8, lazy
+    pub fn launch_blocking_unary_compute(
         &mut self,
         opcode: CRTOpCode,
         in_tensor: ActTensorTypes,
@@ -154,11 +143,11 @@ impl HostSession {
             respond_to: send,
         };
         info!(
-            "::launch_unary_compute::send msg to actor_system {:?}",
+            "::launch_blocking_unary_compute::send msg to actor_system {:?}",
             opmsg
         );
         debug!(
-            "::launch_unary_compute::send msg to actor_system {:#?}",
+            "::launch_blocking_unary_compute::send msg to actor_system {:#?}",
             opmsg
         );
         self.async_runtime.block_on(async {
