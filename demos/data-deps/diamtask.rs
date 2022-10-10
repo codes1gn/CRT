@@ -15,12 +15,13 @@ fn sequence_test() {
     ipt.init(3);
 
     // TODO svalue<[shape], 0.7>
-    ipt.run_bytecode("%0 = crt.helper.svalue.tensor! ones<[2 2]> : f32\n");
-
-    ipt.run_bytecode("%1 = crt.exp.f32! %0 : f32\n");
-    ipt.run_bytecode("%2 = crt.exp.f32! %1 : f32\n");
-    ipt.run_bytecode("%3 = crt.exp.f32! %1 : f32\n");
-    ipt.run_bytecode("%4 = crt.add.f32! %2, %3 : f32\n");
+    let bytecode = "%0 = crt.helper.svalue.tensor! ones<[2 2]> : f32\n\
+    %1 = crt.exp.f32! %0 : f32\n\
+    %2 = crt.exp.f32! %1 : f32\n\
+    %3 = crt.exp.f32! %1 : f32\n\
+    %4 = crt.add.f32! %2, %3 : f32\n";
+    // ipt.run_bytecode_eagerly(bytecode);
+    ipt.run_bytecode_lazily(bytecode);
     assert_float_eq!(*ipt.vm.get_fdata(4), vec![1.0; 4], rmax_all <= 0.00001);
 }
 

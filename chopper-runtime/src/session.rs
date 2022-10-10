@@ -126,11 +126,43 @@ impl HostSession {
         })
     }
 
-    // TODO exec_mode = 
+    // TODO exec_mode =
     // 0u8, eager + blocking + owned
     // 1u8, eager + blocking + borrowed
     // 2u8, eager + non-blocking + borrowed
     // 3u8, lazy
+    pub fn launch_non_blocking_unary_compute(
+        &mut self,
+        opcode: CRTOpCode,
+        in_tensor: ActTensorTypes,
+        signal_box: oneshot::Receiver<u8>,
+    ) -> oneshot::Receiver<u8> {
+        // assume only one consumer after
+        let (send, recv) = oneshot::channel::<u8>();
+        let opmsg = PayloadMessage::NonRetUnaryComputeFunctorMsg {
+            op: opcode,
+            inp: in_tensor,
+            inp_ready_checker: signal_box,
+            respond_to: send,
+        };
+        info!(
+            "::launch_non_blocking_unary_compute::send msg to actor_system {:?}",
+            opmsg
+        );
+        debug!(
+            "::launch_non_blocking_unary_compute::send msg to actor_system {:#?}",
+            opmsg
+        );
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::PayloadMSG(opmsg))
+                .await;
+        });
+
+        info!("::Non-blocking-launching Finished, return recv_box");
+        return recv;
+    }
+
     pub fn launch_blocking_unary_compute(
         &mut self,
         opcode: CRTOpCode,

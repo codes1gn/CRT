@@ -1,8 +1,11 @@
 use std::collections::HashMap;
+use std::{thread, time};
 
 #[cfg(any(feature = "blas", feature = "mock"))]
 use rublas::prelude::*;
 use tracing::{debug, info};
+
+use tokio::sync::oneshot;
 
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +34,7 @@ pub struct VM {
     // pub data_buffer_i32: HashMap<usize, UniBuffer<concrete_backend::Backend, i32>>,
     // TODO maybe remove
     pub data_buffer_i32: HashMap<usize, ActTensorTypes>,
+    pub ready_checkers: HashMap<usize, oneshot::Receiver<u8>>,
     session: HostSession,
 }
 
@@ -52,6 +56,7 @@ impl VM {
             session: session,
             data_buffer_f32: HashMap::new(),
             data_buffer_i32: HashMap::new(),
+            ready_checkers: HashMap::new(),
         }
     }
 
@@ -134,7 +139,7 @@ impl VM {
 
     // TODO may replace status with a enum
     // TODO may replace exec_mode with enum
-    // TODO exec_mode = 
+    // TODO exec_mode =
     // 0u8, eager + blocking + consuming-inputs
     // 1u8, eager + blocking + non-consuming-inputs
     // 2u8, eager + non-blocking + non-consuming-inputs
@@ -166,27 +171,56 @@ impl VM {
                 // TODO rename dataview into ActTensorTypes
                 let opcode = CRTOpCode::EXPF32;
                 match exec_mode {
+                    // should deprecate since it is not a safe mode that consumes
+                    // try to learn from functional, consumes inputs is also a side-effect
                     0u8 => {
+                        // consuming-inputs-style + blocking-style
                         let in_dataview = self.data_buffer_f32.remove(&operand_in).unwrap();
                         info!("::vm::call-session-launch-unary-compute eager+owned+blocking");
-                        let outs = self.session.launch_blocking_unary_compute(opcode, in_dataview);
-                        info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.data_buffer_f32.insert(operand_out, outs);
-                        Ok(0)
-                    },
-                    1u8 => {
-                        // anchor
-                        // TODO insert to vm buffer before dispatch compute; in non-blocking 
-                        // method, lifetime will expires before compute done
-                        // now is blocking, so we can use do this later
-                        let in_dataview_clone = self.get_data_clone(&operand_in);
-                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
-                        let outs = self.session.launch_blocking_unary_compute(opcode, in_dataview_clone);
+                        let outs = self
+                            .session
+                            .launch_blocking_unary_compute(opcode, in_dataview);
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
                         self.data_buffer_f32.insert(operand_out, outs);
                         Ok(0)
                     }
-                    _ => { panic!("lsls")},
+                    1u8 => {
+                        // non-consuming-inputs-style + blocking-style
+                        let in_dataview_clone = self.get_data_clone(&operand_in);
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let outs = self
+                            .session
+                            .launch_blocking_unary_compute(opcode, in_dataview_clone);
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        self.data_buffer_f32.insert(operand_out, outs);
+                        Ok(0)
+                    }
+                    2u8 => {
+                        // non-consuming-inputs-style + non-blocking-style
+                        let in_dataview_clone = self.get_data_clone(&operand_in);
+                        let signal_box = self.ready_checkers.remove(&operand_in).expect(
+                            &format!("failed to fetch ready-checker {}", operand_in).to_string(),
+                        );
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let recv_box = self.session.launch_non_blocking_unary_compute(
+                            opcode,
+                            in_dataview_clone,
+                            signal_box,
+                        );
+                        self.ready_checkers.insert(operand_out, recv_box);
+
+                        // create a future-ready tensor
+                        // TODO change data part into Option with a None init
+                        let output_placeholder_clone = self.get_data_clone(&operand_in);
+                        info!("::create placeholder tensor for ret-value-tensor");
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        self.data_buffer_f32
+                            .insert(operand_out, output_placeholder_clone);
+                        Ok(0)
+                    }
+                    _ => {
+                        panic!("lsls")
+                    }
                 }
             }
             CRTOpCode::ADDI32 => {
@@ -381,6 +415,10 @@ impl VM {
                     vec![data_generator_f32; raw_shape_vec.iter().product()],
                     raw_shape_vec,
                 );
+                let (send, recv) = oneshot::channel::<u8>();
+                info!("::vm::fill data-ready-checker #{}", operand_out);
+                self.ready_checkers.insert(operand_out, recv);
+                send.send(0u8);
                 Ok(0)
             }
             CRTOpCode::RNGTENSOR => {
@@ -513,13 +551,24 @@ impl VM {
             info!("::vm::cmd-buffer empty >> halt");
             return Err(RuntimeStatusError::EXEC_FINISH);
         }
-        // TODO exec_mode = 
+        self.step_impl(1 as u8)
+    }
+
+    // entry functions for execute, that is public
+    pub fn lazy_step(&mut self) -> Result<u8, RuntimeStatusError> {
+        info!("::vm::eager-step");
+        if self.program_counter >= self.command_buffer.len() {
+            info!("::vm::cmd-buffer empty >> halt");
+            return Err(RuntimeStatusError::EXEC_FINISH);
+        }
+        // TODO exec_mode =
         // 0u8, eager + blocking + owned
         // 1u8, eager + blocking + borrowed
         // 2u8, eager + non-blocking + borrowed
         // 3u8, lazy
         // self.step_impl(0 as u8)
-        self.step_impl(1 as u8)
+        // self.step_impl(1 as u8)
+        self.step_impl(2 as u8)
     }
 
     // TODO modify the return into statuscode
@@ -534,6 +583,22 @@ impl VM {
                 Err(_) => return status,
             }
         }
+        info!("::vm::task-dispatch finished, sleep to wait all done");
+    }
+
+    // TODO modify the return into statuscode
+    pub fn run_lazily(&mut self) -> Result<u8, RuntimeStatusError> {
+        info!("::vm::run-lazily");
+        loop {
+            let status = self.lazy_step();
+            match status {
+                Ok(_) => {
+                    info!("continue ");
+                }
+                Err(_) => return status,
+            }
+        }
+        info!("::vm::task-dispatch finished, sleep to wait all done");
     }
 }
 

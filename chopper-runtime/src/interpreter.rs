@@ -1,4 +1,5 @@
 extern crate float_eq;
+use std::{thread, time};
 
 use float_eq::{assert_float_eq, float_eq};
 
@@ -91,14 +92,34 @@ impl Interpreter {
         Ok(results)
     }
 
-    pub fn run_bytecode(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
+    pub fn run_bytecode_eagerly(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
         let parsed_program = parse_bytecode(CompleteStr(bytecode));
         let (_, result_program) = parsed_program.expect("failed to parse bytecode");
         let bytecode = result_program.to_bytes();
         for byte in bytecode {
             self.vm.push_bytecode_into_cmdbuffer(byte);
         }
-        self.vm.run_eagerly()
+        let status = self.vm.run_eagerly();
+        // let status = self.vm.run_eagerly();
+        // TODO keep this wait here until all done, since currently we do not wait all spawned
+        // threads done their tasks
+        // thread::sleep(time::Duration::from_millis((6000) as u64));
+        status
+    }
+
+    pub fn run_bytecode_lazily(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
+        let parsed_program = parse_bytecode(CompleteStr(bytecode));
+        let (_, result_program) = parsed_program.expect("failed to parse bytecode");
+        let bytecode = result_program.to_bytes();
+        for byte in bytecode {
+            self.vm.push_bytecode_into_cmdbuffer(byte);
+        }
+        let status = self.vm.run_lazily();
+        // let status = self.vm.run_eagerly();
+        // TODO keep this wait here until all done, since currently we do not wait all spawned
+        // threads done their tasks
+        thread::sleep(time::Duration::from_millis((6000) as u64));
+        status
     }
 
     fn consume_command(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
@@ -133,7 +154,7 @@ impl Interpreter {
                 // TODO
                 Ok(4)
             }
-            _ => self.run_bytecode(bytecode),
+            _ => self.run_bytecode_eagerly(bytecode),
         }
     }
 
