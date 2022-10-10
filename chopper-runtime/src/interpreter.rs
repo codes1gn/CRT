@@ -118,7 +118,7 @@ impl Interpreter {
         // let status = self.vm.run_eagerly();
         // TODO keep this wait here until all done, since currently we do not wait all spawned
         // threads done their tasks
-        thread::sleep(time::Duration::from_millis((6000) as u64));
+        thread::sleep(time::Duration::from_millis((4000) as u64));
         status
     }
 

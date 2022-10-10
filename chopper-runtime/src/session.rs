@@ -126,6 +126,21 @@ impl HostSession {
         })
     }
 
+    // TODO extract into utils
+    fn build_notifiers_and_ready_checkers(
+        &self,
+        cnt: u8,
+    ) -> (Vec<oneshot::Sender<u8>>, Vec<oneshot::Receiver<u8>>) {
+        let mut senders = vec![];
+        let mut receivers = vec![];
+        for i in 0..cnt {
+            let (send, recv) = oneshot::channel::<u8>();
+            senders.push(send);
+            receivers.push(recv);
+        }
+        (senders, receivers)
+    }
+
     // TODO exec_mode =
     // 0u8, eager + blocking + owned
     // 1u8, eager + blocking + borrowed
@@ -136,14 +151,14 @@ impl HostSession {
         opcode: CRTOpCode,
         in_tensor: ActTensorTypes,
         signal_box: oneshot::Receiver<u8>,
-    ) -> oneshot::Receiver<u8> {
+    ) -> Vec<oneshot::Receiver<u8>> {
         // assume only one consumer after
-        let (send, recv) = oneshot::channel::<u8>();
+        let (notifiers, ready_checkers) = self.build_notifiers_and_ready_checkers(4);
         let opmsg = PayloadMessage::NonRetUnaryComputeFunctorMsg {
             op: opcode,
             inp: in_tensor,
             inp_ready_checker: signal_box,
-            respond_to: send,
+            respond_to: notifiers,
         };
         info!(
             "::launch_non_blocking_unary_compute::send msg to actor_system {:?}",
@@ -160,7 +175,7 @@ impl HostSession {
         });
 
         info!("::Non-blocking-launching Finished, return recv_box");
-        return recv;
+        return ready_checkers;
     }
 
     pub fn launch_blocking_unary_compute(

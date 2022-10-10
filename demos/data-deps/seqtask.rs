@@ -27,12 +27,12 @@ fn sequence_test() {
         %1 = crt.exp.f32! %0 : f32\n\
         %2 = crt.exp.f32! %1 : f32\n\
         %3 = crt.exp.f32! %2 : f32\n\
-        %4 = crt.exp.f32! %3 : f32\n\
-        %5 = crt.exp.f32! %4 : f32\n\
-        %6 = crt.exp.f32! %5 : f32\n\
+        %11 = crt.exp.f32! %0 : f32\n\
+        %21 = crt.exp.f32! %1 : f32\n\
+        %33 = crt.exp.f32! %2 : f32\n\
     ";
-    ipt.run_bytecode_eagerly(bytecode);
-    // ipt.run_bytecode_lazily(bytecode);
+    // ipt.run_bytecode_eagerly(bytecode);
+    ipt.run_bytecode_lazily(bytecode);
     assert_float_eq!(*ipt.vm.get_fdata(0), vec![1.0; 4], rmax_all <= 0.00001);
     assert_float_eq!(*ipt.vm.get_fdata(1), vec![1.0; 4], rmax_all <= 0.00001);
     assert_float_eq!(*ipt.vm.get_fdata(2), vec![1.0; 4], rmax_all <= 0.00001);

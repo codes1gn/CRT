@@ -1,3 +1,4 @@
+use multimap::MultiMap;
 use std::collections::HashMap;
 use std::{thread, time};
 
@@ -34,7 +35,7 @@ pub struct VM {
     // pub data_buffer_i32: HashMap<usize, UniBuffer<concrete_backend::Backend, i32>>,
     // TODO maybe remove
     pub data_buffer_i32: HashMap<usize, ActTensorTypes>,
-    pub ready_checkers: HashMap<usize, oneshot::Receiver<u8>>,
+    pub ready_checkers: MultiMap<usize, oneshot::Receiver<u8>>,
     session: HostSession,
 }
 
@@ -56,7 +57,7 @@ impl VM {
             session: session,
             data_buffer_f32: HashMap::new(),
             data_buffer_i32: HashMap::new(),
-            ready_checkers: HashMap::new(),
+            ready_checkers: MultiMap::with_capacity(128),
         }
     }
 
@@ -137,6 +138,20 @@ impl VM {
         ret_bytes
     }
 
+    fn build_notifiers_and_ready_checkers(
+        &self,
+        cnt: u8,
+    ) -> (Vec<oneshot::Sender<u8>>, Vec<oneshot::Receiver<u8>>) {
+        let mut senders = vec![];
+        let mut receivers = vec![];
+        for i in 0..cnt {
+            let (send, recv) = oneshot::channel::<u8>();
+            senders.push(send);
+            receivers.push(recv);
+        }
+        (senders, receivers)
+    }
+
     // TODO may replace status with a enum
     // TODO may replace exec_mode with enum
     // TODO exec_mode =
@@ -197,17 +212,40 @@ impl VM {
                     }
                     2u8 => {
                         // non-consuming-inputs-style + non-blocking-style
+                        println!("{:#?}", self.ready_checkers);
                         let in_dataview_clone = self.get_data_clone(&operand_in);
-                        let signal_box = self.ready_checkers.remove(&operand_in).expect(
-                            &format!("failed to fetch ready-checker {}", operand_in).to_string(),
-                        );
+                        info!("::vm::poll ready-checker for tensor #{}", operand_in);
+                        let ready_checkers = self
+                            .ready_checkers
+                            .get_vec_mut(&operand_in)
+                            .expect(
+                                &format!("failed to fetch ready-checker {}", operand_in)
+                                    .to_string(),
+                            )
+                            .remove(0 as usize);
                         info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
                         let recv_box = self.session.launch_non_blocking_unary_compute(
                             opcode,
                             in_dataview_clone,
-                            signal_box,
+                            ready_checkers,
                         );
-                        self.ready_checkers.insert(operand_out, recv_box);
+                        info!("{:?}", recv_box);
+                        info!("fuck ==================");
+                        info!("{:?}", recv_box);
+                        // TODO check redefinition of operand-out
+                        if self.ready_checkers.contains_key(&operand_out) {
+                            panic!("variable {}, redefined error", operand_out);
+                        }
+                        self.ready_checkers.insert_many(operand_out, recv_box);
+                        // recv_box.into_iter().map(|x| {
+                        //     // info!("dfjdslfj => {:?}, {:?}", operand_out, x);
+                        //     self.ready_checkers.insert(operand_out, x);
+                        // });
+                        // for i in 0..3 {
+                        //     let recvb = recv_box.into_iter().next().unwrap();
+                        //     self.ready_checkers.insert(operand_out, recvb);
+                        // }
+                        info!("::vm::store ready-checker for tensor #{}", operand_out);
 
                         // create a future-ready tensor
                         // TODO change data part into Option with a None init
@@ -216,6 +254,7 @@ impl VM {
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
                         self.data_buffer_f32
                             .insert(operand_out, output_placeholder_clone);
+                        println!("{:#?}", self.ready_checkers);
                         Ok(0)
                     }
                     _ => {
@@ -415,10 +454,12 @@ impl VM {
                     vec![data_generator_f32; raw_shape_vec.iter().product()],
                     raw_shape_vec,
                 );
-                let (send, recv) = oneshot::channel::<u8>();
+                for i in 0..8 {
+                    let (notifier, ready_checker) = oneshot::channel::<u8>();
+                    notifier.send(0u8);
+                    self.ready_checkers.insert(operand_out, ready_checker);
+                }
                 info!("::vm::fill data-ready-checker #{}", operand_out);
-                self.ready_checkers.insert(operand_out, recv);
-                send.send(0u8);
                 Ok(0)
             }
             CRTOpCode::RNGTENSOR => {
