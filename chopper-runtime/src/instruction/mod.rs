@@ -33,6 +33,7 @@ pub enum CRTOpCode {
 
     // Unary 16
     EXPF32,
+    RETV,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -131,6 +132,9 @@ impl From<u8> for CRTOpCode {
             16 => {
                 return CRTOpCode::EXPF32;
             }
+            17 => {
+                return CRTOpCode::RETV;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -189,6 +193,7 @@ impl From<CompleteStr<'_>> for CRTOpCode {
     fn from(s: CompleteStr<'_>) -> Self {
         match s {
             CompleteStr("halt") => CRTOpCode::HALT,
+            CompleteStr("return") => CRTOpCode::RETV,
             CompleteStr("load") => CRTOpCode::LOAD,
             CompleteStr("crt.add.i32") => CRTOpCode::ADDI32,
             CompleteStr("crt.sub.i32") => CRTOpCode::SUBI32,

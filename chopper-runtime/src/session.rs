@@ -151,6 +151,7 @@ impl HostSession {
         opcode: CRTOpCode,
         in_tensor: ActTensorTypes,
         signal_box: oneshot::Receiver<u8>,
+        respond_id: usize,
     ) -> Vec<oneshot::Receiver<u8>> {
         // assume only one consumer after
         let (notifiers, ready_checkers) = self.build_notifiers_and_ready_checkers(4);
@@ -159,6 +160,7 @@ impl HostSession {
             inp: in_tensor,
             inp_ready_checker: signal_box,
             respond_to: notifiers,
+            respond_id: respond_id,
         };
         info!(
             "::launch_non_blocking_unary_compute::send msg to actor_system {:?}",

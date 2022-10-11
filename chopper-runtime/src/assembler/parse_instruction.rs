@@ -16,7 +16,7 @@ use crate::assembler::parse_type::*;
 named!(pub parse_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         _inst: alt!(
-            parse_directive | parse_binary_assignment | parse_unary_assignment
+            parse_halt | parse_return | parse_binary_assignment | parse_unary_assignment
         ) >> (
             _inst
         )
@@ -24,7 +24,7 @@ named!(pub parse_instruction<CompleteStr, AsmInstruction>,
 );
 
 // halt
-named!(parse_directive<CompleteStr, AsmInstruction>,
+named!(parse_halt<CompleteStr, AsmInstruction>,
     do_parse!(
         _opcode: alt!(
             tag!("halt")
@@ -42,13 +42,62 @@ named!(parse_directive<CompleteStr, AsmInstruction>,
     )
 );
 
+// return %1
+named!(parse_return<CompleteStr, AsmInstruction>,
+    do_parse!(
+        _opcode: alt!(
+            tag!("return")
+        ) >>
+        opt!(multispace) >>
+        // TODO runtime function is functional, no side
+        //  effect, must clear all results without returns
+        _operand1: parse_operand >>
+        // must use multispace, since we have to identify change lines of halt itself.
+        opt!(multispace) >>
+        (
+            AsmInstruction {
+                opcode: Token::BytecodeOpCode { code: CRTOpCode::from(_opcode) },
+                operand1: Some(_operand1),
+                operand2: None,
+                operand3: None,
+            }
+        )
+    )
+);
+
+// return %2, %1
+// TODO multi-ret-values support
+// named!(parse_return_pair<CompleteStr, AsmInstruction>,
+//     do_parse!(
+//         _opcode: alt!(
+//             tag!("return")
+//         ) >>
+//         opt!(multispace) >>
+//         // TODO runtime function is functional, no side
+//         //  effect, must clear all results without returns
+//         _operand1: parse_operand >>
+//         tag!(", ") >>
+//         _operand2: parse_operand >>
+//         // must use multispace, since we have to identify change lines of halt itself.
+//         opt!(multispace) >>
+//         (
+//             AsmInstruction {
+//                 opcode: Token::BytecodeOpCode { code: CRTOpCode::from(_opcode) },
+//                 operand1: Some(_operand1),
+//                 operand2: Some(_operand1),
+//                 operand3: None,
+//             }
+//         )
+//     )
+// );
+
 // binary-assignment ::= out-operand opcode lhs-operand rhs-operand
 // lhs-operand ::= operand | numeric-literal
 // rhs-operand ::= operand | numeric-literal
 named!(
     parse_binary_assignment<CompleteStr, AsmInstruction>,
     do_parse!(
-        _return: parse_operand >>
+        _result: parse_operand >>
         tag!("= ") >>
         _opcode: parse_opcode >>
         _operand_lhs: parse_operand >>
@@ -59,7 +108,7 @@ named!(
         (
             AsmInstruction {
                 opcode: _opcode,
-                operand1: Some(_return),
+                operand1: Some(_result),
                 operand2: Some(_operand_lhs),
                 operand3: Some(_operand_rhs),
 
@@ -124,6 +173,15 @@ mod tests {
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
         assert_eq!(_bytes_result, vec![0])
+    }
+
+    // tests that covers parse_halt
+    #[test]
+    fn test_parse_return() {
+        let result = parse_instruction(CompleteStr("return %1\n"));
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1.to_bytes();
+        assert_eq!(_bytes_result, vec![17, 1])
     }
 
     // tests that covers parse_binary

@@ -164,13 +164,35 @@ impl VM {
         match self.fetch_instruction().unwrap() {
             CRTOpCode::HALT => {
                 info!("::vm::halt-vm");
-                // TODO move to base::const, use 1 as halt status
                 Ok(1)
             }
             CRTOpCode::ILLEGAL => {
                 info!("::vm::halt-with-Illegal-Instruction");
                 Err(RuntimeStatusError::RT_ERROR)
             }
+            CRTOpCode::RETV => {
+                info!("::vm::return from module");
+                let operand_ret = self.get_next_byte() as usize;
+                // clear ready_checker
+                // currently solution, wait for this retv ready-checker then returns
+                println!("{}", operand_ret);
+                let ready_checker = self
+                    .ready_checkers
+                    .get_vec_mut(&operand_ret)
+                    .expect(&format!("failed to fetch ready-checker {}", operand_ret).to_string())
+                    .remove(0 as usize);
+                ready_checker
+                    .blocking_recv()
+                    .expect("return value computing not ready");
+                info!("::vm::ret-value compute done");
+                // clear data_buffer before return
+                // TODO maybe we need a strategy to decide what results retains and drop
+                // considering function calls in module
+                self.data_buffer_f32.retain(|&k, _| k == operand_ret);
+                info!("::vm::ret-value retain and return");
+                Ok(2)
+            }
+            // TODO rename to loadu16
             CRTOpCode::LOAD => {
                 let register_id = self.get_next_byte() as usize;
                 let operand = self.get_next_two_bytes() as u16;
@@ -215,7 +237,7 @@ impl VM {
                         println!("{:#?}", self.ready_checkers);
                         let in_dataview_clone = self.get_data_clone(&operand_in);
                         info!("::vm::poll ready-checker for tensor #{}", operand_in);
-                        let ready_checkers = self
+                        let ready_checker = self
                             .ready_checkers
                             .get_vec_mut(&operand_in)
                             .expect(
@@ -227,11 +249,9 @@ impl VM {
                         let recv_box = self.session.launch_non_blocking_unary_compute(
                             opcode,
                             in_dataview_clone,
-                            ready_checkers,
+                            ready_checker,
+                            operand_out,
                         );
-                        info!("{:?}", recv_box);
-                        info!("fuck ==================");
-                        info!("{:?}", recv_box);
                         // TODO check redefinition of operand-out
                         if self.ready_checkers.contains_key(&operand_out) {
                             panic!("variable {}, redefined error", operand_out);
