@@ -149,7 +149,7 @@ impl HostSession {
     pub fn launch_non_blocking_unary_compute(
         &mut self,
         opcode: CRTOpCode,
-        in_tensor: ActTensorTypes,
+        in_tensor: Arc<ActTensorTypes>,
         signal_box: oneshot::Receiver<u8>,
         respond_id: usize,
     ) -> Vec<oneshot::Receiver<u8>> {
@@ -183,7 +183,7 @@ impl HostSession {
     pub fn launch_blocking_unary_compute(
         &mut self,
         opcode: CRTOpCode,
-        in_tensor: ActTensorTypes,
+        in_tensor: Arc<ActTensorTypes>,
     ) -> ActTensorTypes {
         let (send, recv) = oneshot::channel();
         let opmsg = PayloadMessage::UnaryComputeFunctorMsg {
@@ -214,8 +214,8 @@ impl HostSession {
     pub fn launch_binary_compute(
         &mut self,
         opcode: CRTOpCode,
-        lhs_tensor: ActTensorTypes,
-        rhs_tensor: ActTensorTypes,
+        lhs_tensor: Arc<ActTensorTypes>,
+        rhs_tensor: Arc<ActTensorTypes>,
     ) -> ActTensorTypes {
         let (send, recv) = oneshot::channel();
         let opmsg = PayloadMessage::ComputeFunctorMsg {
@@ -267,12 +267,12 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let lhs_tensor_view = ActTensorTypes::F32Tensor {
+        let lhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
-        };
-        let rhs_tensor_view = ActTensorTypes::F32Tensor {
+        });
+        let rhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
-        };
+        });
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut lhs_dataview = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &se.device_context.device,
@@ -291,7 +291,11 @@ mod tests {
         //     rhs_tensor_view,
         // );
         let opcode = CRTOpCode::ADDF32;
-        let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.launch_binary_compute(
+            opcode,
+            Arc::clone(&lhs_tensor_view),
+            Arc::clone(&rhs_tensor_view),
+        );
         assert_eq!(
             result_buffer,
             ActTensorTypes::F32Tensor {
@@ -311,14 +315,18 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let lhs_tensor_view = ActTensorTypes::F32Tensor {
+        let lhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
-        };
-        let rhs_tensor_view = ActTensorTypes::F32Tensor {
+        });
+        let rhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
-        };
+        });
         let opcode = CRTOpCode::SUBF32;
-        let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.launch_binary_compute(
+            opcode,
+            Arc::clone(&lhs_tensor_view),
+            Arc::clone(&rhs_tensor_view),
+        );
         assert_eq!(
             result_buffer,
             ActTensorTypes::F32Tensor {
@@ -338,14 +346,18 @@ mod tests {
         let lhs_shape = vec![2, 3];
         let rhs_shape = vec![3, 2];
         //create lhs dataview
-        let lhs_tensor_view = ActTensorTypes::F32Tensor {
+        let lhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
-        };
-        let rhs_tensor_view = ActTensorTypes::F32Tensor {
+        });
+        let rhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
-        };
+        });
         let opcode = CRTOpCode::MATMULF32;
-        let mut result_buffer = se.launch_binary_compute(opcode, lhs_tensor_view, rhs_tensor_view);
+        let mut result_buffer = se.launch_binary_compute(
+            opcode,
+            Arc::clone(&lhs_tensor_view),
+            Arc::clone(&rhs_tensor_view),
+        );
         assert_eq!(
             result_buffer,
             ActTensorTypes::F32Tensor {

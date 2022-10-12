@@ -1,5 +1,6 @@
 use multimap::MultiMap;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::{thread, time};
 
 #[cfg(any(feature = "blas", feature = "mock"))]
@@ -31,7 +32,7 @@ pub struct VM {
     // to allow new without explicit value of Session, thus not borrow a moved
     // value -> device instance
     // pub tensor_pool: HashMap<usize, UniBuffer<concrete_backend::Backend, f32>>,
-    tensor_pool: HashMap<usize, ActTensorTypes>,
+    tensor_pool: HashMap<usize, Arc<ActTensorTypes>>,
     // TODO refactor with notifier
     ready_checkers: MultiMap<usize, oneshot::Receiver<u8>>,
     session: HostSession,
@@ -215,7 +216,7 @@ impl VM {
                             .session
                             .launch_blocking_unary_compute(opcode, in_dataview);
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.tensor_pool.insert(operand_out, outs);
+                        self.tensor_pool.insert(operand_out, Arc::new(outs));
                         Ok(0)
                     }
                     1u8 => {
@@ -226,7 +227,7 @@ impl VM {
                             .session
                             .launch_blocking_unary_compute(opcode, in_dataview_clone);
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.tensor_pool.insert(operand_out, outs);
+                        self.tensor_pool.insert(operand_out, Arc::new(outs));
                         Ok(0)
                     }
                     2u8 => {
@@ -283,8 +284,8 @@ impl VM {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::ADDI32;
@@ -292,15 +293,15 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::ADDF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::ADDF32;
@@ -311,30 +312,30 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::SUBI32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::SUBI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::SUBF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::SUBF32;
@@ -342,7 +343,7 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::MULI32 => {
@@ -350,15 +351,15 @@ impl VM {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::MULI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::MULF32 => {
@@ -366,8 +367,8 @@ impl VM {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::MULF32;
@@ -375,7 +376,7 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::FLOORDIVI32 => {
@@ -383,15 +384,15 @@ impl VM {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::FLOORDIVI32;
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::DIVF32 => {
@@ -399,8 +400,8 @@ impl VM {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::DIVF32;
@@ -408,15 +409,15 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::MATMULF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.tensor_pool.remove(&operand_lhs).unwrap();
-                let rhs_dataview = self.tensor_pool.remove(&operand_rhs).unwrap();
+                let lhs_dataview = self.get_data_clone(&operand_lhs);
+                let rhs_dataview = self.get_data_clone(&operand_rhs);
                 // println!("{:?}", lhs_dataview);
                 // println!("{:?}", rhs_dataview);
                 let opcode = CRTOpCode::MATMULF32;
@@ -424,7 +425,7 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, outs);
+                self.tensor_pool.insert(operand_out, Arc::new(outs));
                 Ok(0)
             }
             CRTOpCode::CONSTI32 => {
@@ -518,8 +519,8 @@ impl VM {
     }
 
     pub fn get_idata(&self, index: usize) -> &Vec<i32> {
-        match &self.tensor_pool[&index] {
-            ActTensorTypes::I32Tensor { data } => &data.data,
+        match *self.tensor_pool[&index] {
+            ActTensorTypes::I32Tensor { ref data } => &data.data,
             _ => panic!("not support int types"),
         }
     }
@@ -528,9 +529,9 @@ impl VM {
     pub fn push_data_buffer_i32(&mut self, index: usize, data: Vec<i32>) {
         let data_shape = vec![data.len()];
         // TODO-fix hide devices under device_context level
-        let tensor_view = ActTensorTypes::I32Tensor {
+        let tensor_view = Arc::new(ActTensorTypes::I32Tensor {
             data: TensorView::<i32>::new(data, ElementType::I32, data_shape),
-        };
+        });
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut data_buffer = UniBuffer::<concrete_backend::Backend, i32>::new(
         //     &self.session.device_context.device,
@@ -545,31 +546,31 @@ impl VM {
         self.tensor_pool.insert(index, tensor_view);
     }
 
-    pub fn get_data_clone(&mut self, index: &usize) -> ActTensorTypes {
-        self.tensor_pool[index].clone()
+    pub fn get_data_clone(&mut self, index: &usize) -> Arc<ActTensorTypes> {
+        Arc::clone(&self.tensor_pool[index])
     }
 
     // TODO renaming
     pub fn get_fdata(&self, index: usize) -> &Vec<f32> {
         // TODO add guard for array-access-by-index
-        match &self.tensor_pool[&index] {
-            ActTensorTypes::F32Tensor { data } => &data.data,
+        match *self.tensor_pool[&index] {
+            ActTensorTypes::F32Tensor { ref data } => &data.data,
             _ => panic!("not support int types"),
         }
     }
 
     pub fn get_fshape(&self, index: usize) -> &Vec<usize> {
-        match &self.tensor_pool[&index] {
-            ActTensorTypes::F32Tensor { data } => &data.shape,
+        match *self.tensor_pool[&index] {
+            ActTensorTypes::F32Tensor { ref data } => &data.shape,
             _ => panic!("not support int types"),
         }
     }
 
     pub fn push_tensor_pool(&mut self, index: usize, data: Vec<f32>) {
         let data_shape = vec![data.len()];
-        let tensor_view = ActTensorTypes::F32Tensor {
+        let tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, data_shape),
-        };
+        });
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &self.session.device_context.device,
@@ -585,9 +586,9 @@ impl VM {
     }
 
     pub fn push_tensor_buffer(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
-        let tensor_view = ActTensorTypes::F32Tensor {
+        let tensor_view = Arc::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, shape),
-        };
+        });
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &self.session.device_context.device,

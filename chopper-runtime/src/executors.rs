@@ -73,7 +73,7 @@ impl ExecutorLike for ActExecutorTypes {
     fn unary_compute(
         &mut self,
         op: Self::OpCodeType,
-        in_tensor: Self::TensorType,
+        in_tensor: Arc<Self::TensorType>,
     ) -> Self::TensorType {
         // debug!("============ on computing unary =============");
         match self {
@@ -96,8 +96,8 @@ impl ExecutorLike for ActExecutorTypes {
     fn binary_compute(
         &mut self,
         op: Self::OpCodeType,
-        lhs_tensor: Self::TensorType,
-        rhs_tensor: Self::TensorType,
+        lhs_tensor: Arc<Self::TensorType>,
+        rhs_tensor: Arc<Self::TensorType>,
     ) -> Self::TensorType {
         // debug!("============ on computing binary =============");
         match self {
@@ -156,11 +156,11 @@ impl ExecutorLike for ActExecutorTypes {
             }
             #[cfg(feature = "blas")]
             ActExecutorTypes::BlasExecutor(ref mut _executor) => {
-                match lhs_tensor {
-                    ActTensorTypes::F32Tensor { data } => {
+                match *lhs_tensor {
+                    ActTensorTypes::F32Tensor { ref data } => {
                         let lhs_data = data.into();
-                        match rhs_tensor {
-                            ActTensorTypes::F32Tensor { data } => {
+                        match *rhs_tensor {
+                            ActTensorTypes::F32Tensor { ref data } => {
                                 let rhs_data = data.into();
                                 let out = ActTensorTypes::F32Tensor {
                                     // TODO tadd to be replace into binary and unary
@@ -175,10 +175,10 @@ impl ExecutorLike for ActExecutorTypes {
                             _ => panic!("dtype mismatch"),
                         }
                     }
-                    ActTensorTypes::I32Tensor { data } => {
+                    ActTensorTypes::I32Tensor { ref data } => {
                         let lhs_data = data.into();
-                        match rhs_tensor {
-                            ActTensorTypes::I32Tensor { data } => {
+                        match *rhs_tensor {
+                            ActTensorTypes::I32Tensor { ref data } => {
                                 let rhs_data = data.into();
                                 let out = ActTensorTypes::I32Tensor {
                                     // TODO tadd to be replace into binary and unary

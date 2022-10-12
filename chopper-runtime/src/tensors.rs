@@ -47,9 +47,23 @@ impl From<TensorView<f32>> for BlasTensor {
 }
 
 #[cfg(any(feature = "mock", feature = "blas"))]
+impl From<&TensorView<f32>> for BlasTensor {
+    fn from(item: &TensorView<f32>) -> Self {
+        BlasTensor::from_vec_shape((*item.data).to_vec(), (*item.shape).to_vec())
+    }
+}
+
+#[cfg(any(feature = "mock", feature = "blas"))]
 impl From<TensorView<i32>> for BlasTensor {
     fn from(item: TensorView<i32>) -> Self {
         BlasTensor::from_vec_shape_i32(item.data, item.shape)
+    }
+}
+
+#[cfg(any(feature = "mock", feature = "blas"))]
+impl From<&TensorView<i32>> for BlasTensor {
+    fn from(item: &TensorView<i32>) -> Self {
+        BlasTensor::from_vec_shape_i32((*item.data).to_vec(), (*item.shape).to_vec())
     }
 }
 
