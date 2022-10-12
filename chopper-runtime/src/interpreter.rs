@@ -9,10 +9,11 @@ use float_eq::{assert_float_eq, float_eq};
 // use log::{debug, info};
 
 #[cfg(any(feature = "blas", feature = "mock"))]
-use opentelemetry::global;
 use tracing::{debug, info};
-use tracing_subscriber::prelude::*;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
+// use opentelemetry::global;
+// use tracing_subscriber::prelude::*;
+// use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use nom::types::CompleteStr;
 use std;
@@ -42,25 +43,25 @@ impl Interpreter {
 
     pub fn init(&mut self, executor_cnt: usize) {
         // init tracing configuration
-        #[cfg(any(feature = "mock", feature = "blas"))]
-        std::env::set_var("RUST_LOG", "info");
-        if std::env::args().any(|arg| arg == "--trace") {
-            global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
-            let tracer = opentelemetry_jaeger::new_pipeline()
-                .with_service_name("raptors")
-                .install_simple()
-                .unwrap();
+        // #[cfg(any(feature = "mock", feature = "blas"))]
+        // std::env::set_var("RUST_LOG", "info");
+        // if std::env::args().any(|arg| arg == "--trace") {
+        //     global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+        //     let tracer = opentelemetry_jaeger::new_pipeline()
+        //         .with_service_name("raptors")
+        //         .install_simple()
+        //         .unwrap();
 
-            let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-            tracing_subscriber::registry()
-                .with(opentelemetry)
-                .with(fmt::Layer::default())
-                .try_init()
-                .unwrap();
-        } else {
-            tracing_subscriber::fmt::try_init().unwrap();
-            // env_logger.init();
-        };
+        //     let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+        //     tracing_subscriber::registry()
+        //         .with(opentelemetry)
+        //         .with(fmt::Layer::default())
+        //         .try_init()
+        //         .unwrap();
+        // } else {
+        //     tracing_subscriber::fmt::try_init().unwrap();
+        //     // env_logger.init();
+        // };
         info!(" == CRT IPT initialization done == ");
 
         // init vm environments
@@ -210,36 +211,9 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_halt() {
-        let mut ipt = Interpreter::new();
-        let status = ipt.run_bytecode("quit");
-        assert_eq!(status.is_ok(), true);
-        let status_code = status.unwrap();
-        assert_eq!(status_code, 7);
-    }
-
-    #[test]
-    fn test_mock_history() {
-        let mut ipt = Interpreter::new();
-        let status = ipt.run_bytecode("history");
-        assert_eq!(status.is_ok(), true);
-        let status_code = status.unwrap();
-        assert_eq!(status_code, 6);
-    }
-
-    #[test]
-    fn test_mock_list() {
-        let mut ipt = Interpreter::new();
-        let status = ipt.run_bytecode("list");
-        assert_eq!(status.is_ok(), true);
-        let status_code = status.unwrap();
-        assert_eq!(status_code, 5);
-    }
-
-    #[test]
     fn test_mock_bytecode_halt() {
         let mut ipt = Interpreter::new();
-        let status = ipt.run_bytecode("halt");
+        let status = ipt.run_bytecode_eagerly("halt");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -252,7 +226,7 @@ mod tests {
         ipt.init(2);
         // ok
         // TODO make runtime check on matching const.i32 and i32 type annotation
-        let status = ipt.run_bytecode("%17 = crt.literal.const.i32! 13 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%17 = crt.literal.const.i32! 13 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -265,7 +239,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.literal.const.f32! 1.3 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%8 = crt.literal.const.f32! 1.3 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -278,7 +252,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.helper.svalue.tensor! zeros<[8 3]> : f32\n");
+        let status =
+            ipt.run_bytecode_eagerly("%8 = crt.helper.svalue.tensor! zeros<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -291,7 +266,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.helper.svalue.tensor! ones<[8 3]> : f32\n");
+        let status = ipt.run_bytecode_eagerly("%8 = crt.helper.svalue.tensor! ones<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -304,7 +279,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(1);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.helper.rng.tensor! uniform<[8 3]> : f32\n");
+        let status = ipt.run_bytecode_eagerly("%8 = crt.helper.rng.tensor! uniform<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -316,7 +291,7 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(1);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.helper.rng.tensor! normal<[8 3]> : f32\n");
+        let status = ipt.run_bytecode_eagerly("%8 = crt.helper.rng.tensor! normal<[8 3]> : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -328,8 +303,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -339,7 +314,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.add.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.add.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -352,8 +327,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -363,7 +338,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.sub.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.sub.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -376,8 +351,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -387,7 +362,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.mul.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.mul.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -400,8 +375,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 1 : i32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.i32! 1 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -411,7 +386,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.floordiv.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.floordiv.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -424,8 +399,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 7 : i32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.i32! 7 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.i32! 2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -435,7 +410,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(2), vec![2]);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.floordiv.i32! %1, %2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.floordiv.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -448,8 +423,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -459,7 +434,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.add.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.add.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -472,8 +447,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -483,7 +458,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.sub.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.sub.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -496,8 +471,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -507,7 +482,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.mul.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.mul.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -520,8 +495,8 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 1.1 : f32\n");
-        let status = ipt.run_bytecode("%2 = crt.literal.const.f32! 2.2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.f32! 1.1 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%2 = crt.literal.const.f32! 2.2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -531,7 +506,7 @@ mod tests {
         assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
-        let status = ipt.run_bytecode("%3 = crt.div.f32! %1, %2 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%3 = crt.div.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -544,9 +519,9 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.literal.const.i32! 3 : i32\n");
-        let status = ipt.run_bytecode("%7 = crt.literal.const.i32! 2 : i32\n");
-        let status = ipt.run_bytecode("%1 = crt.literal.const.i32! 7 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%8 = crt.literal.const.i32! 3 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%7 = crt.literal.const.i32! 2 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.i32! 7 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -556,14 +531,14 @@ mod tests {
         assert_eq!(*ipt.vm.get_idata(7), vec![2]);
 
         // add
-        let status = ipt.run_bytecode("%4 = crt.add.i32! %8, %7 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%4 = crt.add.i32! %8, %7 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_eq!(*ipt.vm.get_idata(4), vec![5]);
 
         // sub
-        let status = ipt.run_bytecode("%5 = crt.sub.i32! %1, %4 : i32\n");
+        let status = ipt.run_bytecode_eagerly("%5 = crt.sub.i32! %1, %4 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -577,9 +552,9 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode("%8 = crt.literal.const.f32! 1.3 : f32\n");
-        let status = ipt.run_bytecode("%7 = crt.literal.const.f32! 2.9 : f32\n");
-        let status = ipt.run_bytecode("%1 = crt.literal.const.f32! 7.4 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%8 = crt.literal.const.f32! 1.3 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%7 = crt.literal.const.f32! 2.9 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.f32! 7.4 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -589,14 +564,14 @@ mod tests {
         assert_eq!(*ipt.vm.get_fdata(7), vec![2.9]);
 
         // add
-        let status = ipt.run_bytecode("%4 = crt.add.f32! %8, %7 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%4 = crt.add.f32! %8, %7 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_float_eq!(*ipt.vm.get_fdata(4), vec![4.2], rmax_all <= 0.00001);
 
         // sub
-        let status = ipt.run_bytecode("%5 = crt.sub.f32! %1, %4 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%5 = crt.sub.f32! %1, %4 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -609,11 +584,11 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode(
-            "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%0 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>: f32\n",
         );
-        let status = ipt.run_bytecode(
-            "%1 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%1 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>: f32\n",
         );
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -634,7 +609,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_fshape(1), vec![2, 3]);
 
         // add
-        let status = ipt.run_bytecode("%4 = crt.add.f32! %0, %1 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%4 = crt.add.f32! %0, %1 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -650,11 +625,11 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(2);
         // ok
-        let status = ipt.run_bytecode(
-            "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%9 = crt.literal.const.tensor! dense<[1.1 2.2 3.3 4.4 5.5 6.6], shape=[2 3]>: f32\n",
         );
-        let status = ipt.run_bytecode(
-            "%7 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%7 = crt.literal.const.tensor! dense<[2.2 3.3 3.3 1.1 3.3 2.2], shape=[2 3]>: f32\n",
         );
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -675,7 +650,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_fshape(7), vec![2, 3]);
 
         // sub
-        let status = ipt.run_bytecode("%5 = crt.sub.f32! %7, %9 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%5 = crt.sub.f32! %7, %9 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -692,11 +667,11 @@ mod tests {
         ipt.init(2);
         // ok
         // matmul(3x2, 2x3) => (3x3)
-        let status = ipt.run_bytecode(
-            "%9 = crt.literal.const.tensor! dense<[1. 2. 3. 4. 5. 6.], shape=[2 3]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%9 = crt.literal.const.tensor! dense<[1. 2. 3. 4. 5. 6.], shape=[2 3]>: f32\n",
         );
-        let status = ipt.run_bytecode(
-            "%7 = crt.literal.const.tensor! dense<[1. 1. 1. 1. 1. 1.], shape=[3 2]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%7 = crt.literal.const.tensor! dense<[1. 1. 1. 1. 1. 1.], shape=[3 2]>: f32\n",
         );
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
@@ -717,7 +692,7 @@ mod tests {
         assert_eq!(*ipt.vm.get_fshape(7), vec![3, 2]);
 
         // matmul, temparilly faked with add
-        let status = ipt.run_bytecode("%5 = crt.matmul.f32! %7, %9 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%5 = crt.matmul.f32! %7, %9 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
@@ -727,13 +702,13 @@ mod tests {
             rmax_all <= 0.00001
         );
 
-        let status = ipt.run_bytecode(
-            "%9 = crt.literal.const.tensor! dense<[1. 2. 3. 4. 5. 6.], shape=[2 3]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%9 = crt.literal.const.tensor! dense<[1. 2. 3. 4. 5. 6.], shape=[2 3]>: f32\n",
         );
-        let status = ipt.run_bytecode(
-            "%7 = crt.literal.const.tensor! dense<[1. 1. 1. 1. 1. 1.], shape=[3 2]>\n",
+        let status = ipt.run_bytecode_eagerly(
+            "%7 = crt.literal.const.tensor! dense<[1. 1. 1. 1. 1. 1.], shape=[3 2]>: f32\n",
         );
-        let status = ipt.run_bytecode("%6 = crt.matmul.f32! %9, %7 : f32\n");
+        let status = ipt.run_bytecode_eagerly("%6 = crt.matmul.f32! %9, %7 : f32\n");
         assert_float_eq!(
             *ipt.vm.get_fdata(6),
             vec![6., 6., 15., 15.],
@@ -748,13 +723,13 @@ mod tests {
         let mut ipt = Interpreter::new();
         ipt.init(3);
 
-        ipt.run_bytecode("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
-        ipt.run_bytecode("%1 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode_eagerly("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode_eagerly("%1 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
 
         // TODO svalue<[shape], 0.7>
-        // ipt.run_bytecode("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        // ipt.run_bytecode_eagerly("%4 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
 
-        ipt.run_bytecode("%3 = crt.add.f32! %1, %0 : f32\n");
+        ipt.run_bytecode_eagerly("%3 = crt.add.f32! %1, %0 : f32\n");
         assert_float_eq!(
             *ipt.vm.get_fdata(3),
             vec![2.0; 34 * 82 * 3],

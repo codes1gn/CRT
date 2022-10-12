@@ -26,5 +26,7 @@ fn sequence_test() {
 }
 
 fn main() {
+    std::env::set_var("RUST_LOG", "info");
+    tracing_subscriber::fmt::try_init().unwrap();
     sequence_test();
 }

@@ -106,8 +106,9 @@ fn small_add_test() {
 }
 
 fn main() {
-    // small_add_test();
-    // big_add_test();
-    // pressure_test();
-    exp_test();
+    std::env::set_var("RUST_LOG", "info");
+    tracing_subscriber::fmt::try_init().unwrap();
+    small_add_test();
+    big_add_test();
+    pressure_test();
 }

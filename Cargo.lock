@@ -222,6 +222,10 @@ dependencies = [
  "glsl-to-spirv",
  "log",
  "nom",
+ "opentelemetry",
+ "opentelemetry-jaeger",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -241,16 +245,12 @@ dependencies = [
  "ndarray 0.13.1",
  "nom",
  "numpy",
- "opentelemetry",
- "opentelemetry-jaeger",
  "pyo3",
  "raptors",
  "rublas",
  "serde",
  "tokio",
  "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber",
  "transpose",
 ]
 
@@ -1222,7 +1222,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-opentelemetry",
- "tracing-subscriber",
  "uuid",
 ]
 

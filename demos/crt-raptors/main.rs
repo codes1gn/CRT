@@ -15,6 +15,7 @@ use chopper_runtime::prelude::*;
 
 fn test_pressure() {
     let mut ipt = Interpreter::new();
+    ipt.init(1);
     // ok
     let status = ipt.run_bytecode_eagerly("%0 = crt.literal.const.f32! 1.3 : f32\n");
     let status = ipt.run_bytecode_eagerly("%1 = crt.literal.const.f32! 7.4 : f32\n");
@@ -136,6 +137,8 @@ fn test_bytecode_run() {
 }
 
 fn main() {
+    std::env::set_var("RUST_LOG", "info");
+    tracing_subscriber::fmt::try_init().unwrap();
     // test_mock_run();
     // test_bytecode_run();
     // test_mock_bytecode_f32_binary_add_then_sub_f32();

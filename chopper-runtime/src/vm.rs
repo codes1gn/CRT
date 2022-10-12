@@ -641,6 +641,7 @@ impl VM {
                 Ok(_) => {
                     info!("continue ");
                 }
+                Err(RuntimeStatusError::EXEC_FINISH) => return Ok(0),
                 Err(_) => return status,
             }
         }
@@ -656,6 +657,7 @@ impl VM {
                 Ok(_) => {
                     info!("continue ");
                 }
+                Err(RuntimeStatusError::EXEC_FINISH) => return Ok(0),
                 Err(_) => return status,
             }
         }
