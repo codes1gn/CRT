@@ -46,6 +46,7 @@ impl From<TensorView<f32>> for BlasTensor {
     }
 }
 
+// TODO verify this impl of conversion, that will not omit excessive time/memory cost
 #[cfg(any(feature = "mock", feature = "blas"))]
 impl From<&TensorView<f32>> for BlasTensor {
     fn from(item: &TensorView<f32>) -> Self {
