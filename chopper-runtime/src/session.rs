@@ -1,4 +1,5 @@
-use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr, sync::Arc};
+use std::sync::{Arc, RwLock};
+use std::{borrow::Cow, env, fs, iter, path::Path, ptr, slice, str::FromStr};
 
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
@@ -149,7 +150,8 @@ impl HostSession {
     pub fn launch_non_blocking_unary_compute(
         &mut self,
         opcode: CRTOpCode,
-        in_tensor: Arc<ActTensorTypes>,
+        in_tensor: Arc<RwLock<ActTensorTypes>>,
+        out_tensor: Arc<RwLock<ActTensorTypes>>,
         signal_box: oneshot::Receiver<u8>,
         respond_id: usize,
     ) -> Vec<oneshot::Receiver<u8>> {
@@ -158,16 +160,49 @@ impl HostSession {
         let opmsg = PayloadMessage::NonRetUnaryComputeFunctorMsg {
             op: opcode,
             inp: in_tensor,
+            out: out_tensor,
             inp_ready_checker: signal_box,
             respond_to: notifiers,
             respond_id: respond_id,
         };
-        info!(
-            "::launch_non_blocking_unary_compute::send msg to actor_system {:?}",
-            opmsg
-        );
         debug!(
             "::launch_non_blocking_unary_compute::send msg to actor_system {:#?}",
+            opmsg
+        );
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::PayloadMSG(opmsg))
+                .await;
+        });
+
+        info!("::Non-blocking-launching Finished, return recv_box");
+        return ready_checkers;
+    }
+
+    pub fn launch_non_blocking_binary_compute(
+        &mut self,
+        opcode: CRTOpCode,
+        lhs_tensor: Arc<RwLock<ActTensorTypes>>,
+        rhs_tensor: Arc<RwLock<ActTensorTypes>>,
+        out_tensor: Arc<RwLock<ActTensorTypes>>,
+        lhs_signal_box: oneshot::Receiver<u8>,
+        rhs_signal_box: oneshot::Receiver<u8>,
+        respond_id: usize,
+    ) -> Vec<oneshot::Receiver<u8>> {
+        // assume only one consumer after
+        let (notifiers, ready_checkers) = self.build_notifiers_and_ready_checkers(4);
+        let opmsg = PayloadMessage::NonRetBinaryComputeFunctorMsg {
+            op: opcode,
+            lhs: lhs_tensor,
+            rhs: rhs_tensor,
+            out: out_tensor,
+            lhs_ready_checker: lhs_signal_box,
+            rhs_ready_checker: rhs_signal_box,
+            respond_to: notifiers,
+            respond_id: respond_id,
+        };
+        debug!(
+            "::launch_non_blocking_binary_compute::send msg to actor_system {:#?}",
             opmsg
         );
         self.async_runtime.block_on(async {
@@ -183,7 +218,7 @@ impl HostSession {
     pub fn launch_blocking_unary_compute(
         &mut self,
         opcode: CRTOpCode,
-        in_tensor: Arc<ActTensorTypes>,
+        in_tensor: Arc<RwLock<ActTensorTypes>>,
     ) -> ActTensorTypes {
         let (send, recv) = oneshot::channel();
         let opmsg = PayloadMessage::UnaryComputeFunctorMsg {
@@ -191,10 +226,6 @@ impl HostSession {
             inp: in_tensor,
             respond_to: send,
         };
-        info!(
-            "::launch_blocking_unary_compute::send msg to actor_system {:?}",
-            opmsg
-        );
         debug!(
             "::launch_blocking_unary_compute::send msg to actor_system {:#?}",
             opmsg
@@ -214,8 +245,8 @@ impl HostSession {
     pub fn launch_binary_compute(
         &mut self,
         opcode: CRTOpCode,
-        lhs_tensor: Arc<ActTensorTypes>,
-        rhs_tensor: Arc<ActTensorTypes>,
+        lhs_tensor: Arc<RwLock<ActTensorTypes>>,
+        rhs_tensor: Arc<RwLock<ActTensorTypes>>,
     ) -> ActTensorTypes {
         let (send, recv) = oneshot::channel();
         let opmsg = PayloadMessage::ComputeFunctorMsg {
@@ -224,10 +255,6 @@ impl HostSession {
             rhs: rhs_tensor,
             respond_to: send,
         };
-        info!(
-            "::launch_binary_compute::send msg to actor_system {:?}",
-            opmsg
-        );
         debug!(
             "::launch_binary_compute::send msg to actor_system {:#?}",
             opmsg
@@ -267,12 +294,12 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let lhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        let lhs_tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
-        });
-        let rhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        }));
+        let rhs_tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
-        });
+        }));
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut lhs_dataview = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &se.device_context.device,
@@ -315,12 +342,12 @@ mod tests {
         let lhs_shape = vec![lhs.len()];
         let rhs_shape = vec![lhs.len()];
         // create lhs dataview
-        let lhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        let lhs_tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
-        });
-        let rhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        }));
+        let rhs_tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
-        });
+        }));
         let opcode = CRTOpCode::SUBF32;
         let mut result_buffer = se.launch_binary_compute(
             opcode,
@@ -346,12 +373,12 @@ mod tests {
         let lhs_shape = vec![2, 3];
         let rhs_shape = vec![3, 2];
         //create lhs dataview
-        let lhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        let lhs_tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(lhs, ElementType::F32, lhs_shape),
-        });
-        let rhs_tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        }));
+        let rhs_tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
-        });
+        }));
         let opcode = CRTOpCode::MATMULF32;
         let mut result_buffer = se.launch_binary_compute(
             opcode,

@@ -580,6 +580,24 @@ mod tests {
     }
 
     #[test]
+    fn test_mock_bytecode_tensor_add_lazy() {
+        let mut ipt = Interpreter::new();
+        ipt.init(2);
+        let bytecode = "
+            %0 = crt.helper.svalue.tensor! ones<[2 2]> : f32\n\
+            %1 = crt.helper.svalue.tensor! ones<[2 2]> : f32\n\
+            %2 = crt.helper.svalue.tensor! ones<[2 2]> : f32\n\
+            %3 = crt.add.f32! %0, %1 : f32\n\
+            %4 = crt.add.f32! %2, %3 : f32\n\
+            return %4\n
+        ";
+        // ipt.run_bytecode_eagerly(bytecode);
+        ipt.run_bytecode_lazily(bytecode);
+        assert_float_eq!(*ipt.vm.get_fdata(4), vec![3.0; 4], rmax_all <= 0.00001);
+        // ok
+    }
+
+    #[test]
     fn test_mock_bytecode_tensor_add() {
         let mut ipt = Interpreter::new();
         ipt.init(2);

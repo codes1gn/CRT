@@ -1,6 +1,6 @@
 use multimap::MultiMap;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::{thread, time};
 
 #[cfg(any(feature = "blas", feature = "mock"))]
@@ -32,7 +32,7 @@ pub struct VM {
     // to allow new without explicit value of Session, thus not borrow a moved
     // value -> device instance
     // pub tensor_pool: HashMap<usize, UniBuffer<concrete_backend::Backend, f32>>,
-    tensor_pool: HashMap<usize, Arc<ActTensorTypes>>,
+    tensor_pool: HashMap<usize, Arc<RwLock<ActTensorTypes>>>,
     // TODO refactor with notifier
     ready_checkers: MultiMap<usize, oneshot::Receiver<u8>>,
     session: HostSession,
@@ -173,7 +173,6 @@ impl VM {
                 let operand_ret = self.get_next_byte() as usize;
                 // clear ready_checker
                 // currently solution, wait for this retv ready-checker then returns
-                println!("{}", operand_ret);
                 let ready_checker = self
                     .ready_checkers
                     .get_vec_mut(&operand_ret)
@@ -216,7 +215,8 @@ impl VM {
                             .session
                             .launch_blocking_unary_compute(opcode, in_dataview);
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.tensor_pool.insert(operand_out, Arc::new(outs));
+                        self.tensor_pool
+                            .insert(operand_out, Arc::new(RwLock::new(outs)));
                         Ok(0)
                     }
                     1u8 => {
@@ -227,12 +227,12 @@ impl VM {
                             .session
                             .launch_blocking_unary_compute(opcode, in_dataview_clone);
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.tensor_pool.insert(operand_out, Arc::new(outs));
+                        self.tensor_pool
+                            .insert(operand_out, Arc::new(RwLock::new(outs)));
                         Ok(0)
                     }
                     2u8 => {
                         // non-consuming-inputs-style + non-blocking-style
-                        println!("{:#?}", self.ready_checkers);
                         let in_dataview_clone = self.get_data_clone(&operand_in);
                         info!("::vm::poll ready-checker for tensor #{}", operand_in);
                         let ready_checker = self
@@ -243,10 +243,25 @@ impl VM {
                                     .to_string(),
                             )
                             .remove(0 as usize);
+
+                        // create a future-ready tensor
+                        // TODO change data part into Option with a None init
+                        // let output_placeholder = self.create_placeholder(&operand_in);
+                        info!("::create placeholder tensor for ret-value-tensor");
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        let shape = self.get_fshape(operand_in).to_vec();
+                        self.push_tensor_buffer(
+                            operand_out,
+                            vec![0f32; shape.iter().product()],
+                            shape,
+                        );
+                        let out_dataview_clone = self.get_data_clone_mut(&operand_out);
+
                         info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
                         let recv_box = self.session.launch_non_blocking_unary_compute(
                             opcode,
                             in_dataview_clone,
+                            out_dataview_clone,
                             ready_checker,
                             operand_out,
                         );
@@ -271,14 +286,6 @@ impl VM {
                         // }
                         info!("::vm::store ready-checker for tensor #{}", operand_out);
 
-                        // create a future-ready tensor
-                        // TODO change data part into Option with a None init
-                        let output_placeholder_clone = self.get_data_clone(&operand_in);
-                        info!("::create placeholder tensor for ret-value-tensor");
-                        info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.tensor_pool
-                            .insert(operand_out, output_placeholder_clone);
-                        println!("{:#?}", self.ready_checkers);
                         Ok(0)
                     }
                     _ => {
@@ -299,27 +306,117 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<i32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::ADDF32 => {
                 let operand_out = self.get_next_byte() as usize;
                 let operand_lhs = self.get_next_byte() as usize;
                 let operand_rhs = self.get_next_byte() as usize;
-                let lhs_dataview = self.get_data_clone(&operand_lhs);
-                let rhs_dataview = self.get_data_clone(&operand_rhs);
-                // println!("{:?}", lhs_dataview);
-                // println!("{:?}", rhs_dataview);
-                let opcode = CRTOpCode::ADDF32;
-                // TODO launch_binary_compute is a blocking method that recv's compute ret-value
-                // in blocking fashion
-                // TODO impl a non-blocking version
-                let outs = self
-                    .session
-                    .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
-                Ok(0)
+                match exec_mode {
+                    // should deprecate since it is not a safe mode that consumes
+                    // try to learn from functional, consumes inputs is also a side-effect
+                    0u8 => {
+                        let lhs_dataview = self.get_data_clone(&operand_lhs);
+                        let rhs_dataview = self.get_data_clone(&operand_rhs);
+                        // println!("{:?}", lhs_dataview);
+                        // println!("{:?}", rhs_dataview);
+                        let opcode = CRTOpCode::ADDF32;
+                        // TODO launch_binary_compute is a blocking method that recv's compute ret-value
+                        // in blocking fashion
+                        // TODO impl a non-blocking version
+                        let outs =
+                            self.session
+                                .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
+                        // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
+                        self.tensor_pool
+                            .insert(operand_out, Arc::new(RwLock::new(outs)));
+                        Ok(0)
+                    }
+                    1u8 => {
+                        // non-consuming-inputs-style + blocking-style
+                        let lhs_dataview_clone = self.get_data_clone(&operand_lhs);
+                        let rhs_dataview_clone = self.get_data_clone(&operand_rhs);
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let opcode = CRTOpCode::ADDF32;
+                        let outs = self.session.launch_binary_compute(
+                            opcode,
+                            lhs_dataview_clone,
+                            rhs_dataview_clone,
+                        );
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        self.tensor_pool
+                            .insert(operand_out, Arc::new(RwLock::new(outs)));
+                        Ok(0)
+                    }
+                    2u8 => {
+                        // non-consuming-inputs-style + non-blocking-style
+                        let lhs_dataview_clone = self.get_data_clone(&operand_lhs);
+                        let rhs_dataview_clone = self.get_data_clone(&operand_rhs);
+                        info!("::vm::poll ready-checker for tensor #{}", operand_lhs);
+                        let lhs_ready_checker = self
+                            .ready_checkers
+                            .get_vec_mut(&operand_lhs)
+                            .expect(
+                                &format!("failed to fetch ready-checker {}", operand_lhs)
+                                    .to_string(),
+                            )
+                            .remove(0 as usize);
+                        let rhs_ready_checker = self
+                            .ready_checkers
+                            .get_vec_mut(&operand_rhs)
+                            .expect(
+                                &format!("failed to fetch ready-checker {}", operand_rhs)
+                                    .to_string(),
+                            )
+                            .remove(0 as usize);
+
+                        // create a future-ready tensor
+                        // TODO change data part into Option with a None init
+                        // let output_placeholder = self.create_placeholder(&operand_in);
+                        info!("::create placeholder tensor for ret-value-tensor");
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        // TODO hardcode for add
+                        let shape = self.get_fshape(operand_lhs).to_vec();
+                        self.push_tensor_buffer(
+                            operand_out,
+                            vec![0f32; shape.iter().product()],
+                            shape,
+                        );
+                        let out_dataview_clone = self.get_data_clone_mut(&operand_out);
+
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let opcode = CRTOpCode::ADDF32;
+                        let recv_box = self.session.launch_non_blocking_binary_compute(
+                            opcode,
+                            lhs_dataview_clone,
+                            rhs_dataview_clone,
+                            out_dataview_clone,
+                            lhs_ready_checker,
+                            rhs_ready_checker,
+                            operand_out,
+                        );
+
+                        // solution to redefinition, replace ready-checker with new
+                        if self.ready_checkers.contains_key(&operand_out) {
+                            // legacy path
+                            // panic!("variable {}, redefined error", operand_out);
+
+                            // new path
+                            self.ready_checkers.remove(&operand_out);
+                            self.ready_checkers.insert_many(operand_out, recv_box);
+                        } else {
+                            self.ready_checkers.insert_many(operand_out, recv_box);
+                        }
+                        info!("::vm::store ready-checker for tensor #{}", operand_out);
+
+                        Ok(0)
+                    }
+                    _ => {
+                        panic!("lsls")
+                    }
+                }
             }
             CRTOpCode::SUBI32 => {
                 let operand_out = self.get_next_byte() as usize;
@@ -333,7 +430,8 @@ impl VM {
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::SUBF32 => {
@@ -349,7 +447,8 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::MULI32 => {
@@ -365,7 +464,8 @@ impl VM {
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::MULF32 => {
@@ -382,7 +482,8 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::FLOORDIVI32 => {
@@ -398,7 +499,8 @@ impl VM {
                 let outs = self
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::DIVF32 => {
@@ -415,7 +517,8 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::MATMULF32 => {
@@ -431,7 +534,8 @@ impl VM {
                     .session
                     .launch_binary_compute(opcode, lhs_dataview, rhs_dataview);
                 // .benchmark_run::<f32>(opcode, lhs_dataview, rhs_dataview);
-                self.tensor_pool.insert(operand_out, Arc::new(outs));
+                self.tensor_pool
+                    .insert(operand_out, Arc::new(RwLock::new(outs)));
                 Ok(0)
             }
             CRTOpCode::CONSTI32 => {
@@ -524,9 +628,21 @@ impl VM {
         self.command_buffer.push(byte);
     }
 
-    pub fn get_idata(&self, index: usize) -> &Vec<i32> {
-        match *self.tensor_pool[&index] {
-            ActTensorTypes::I32Tensor { ref data } => &data.data,
+    pub fn get_idata(&self, index: usize) -> Vec<i32> {
+        // let _s: Option<&Arc<RwLock<ActTensorTypes>>> = self.tensor_pool.get(&index);
+        // let _ss: Arc<RwLock<ActTensorTypes>> = _s.unwrap().clone();
+        // let _sss = _ss.read().unwrap();
+        // // println!("{:?}", _sss);
+        // match *_sss {
+        //     ActTensorTypes::I32Tensor { ref data } => data.data.clone(),
+        //     _ => panic!("not support int types"),
+
+        // }
+        // TODO google
+        // https://stackoverflow.com/questions/63501380/how-to-get-rid-of-cannot-return-value-referencing-temporary-value-error
+        // https://stackoverflow.com/questions/32682876/is-there-any-way-to-return-a-reference-to-a-variable-created-in-a-function
+        match *self.tensor_pool[&index].read().unwrap() {
+            ActTensorTypes::I32Tensor { ref data } => data.data.clone(),
             _ => panic!("not support int types"),
         }
     }
@@ -535,9 +651,9 @@ impl VM {
     pub fn push_data_buffer_i32(&mut self, index: usize, data: Vec<i32>) {
         let data_shape = vec![data.len()];
         // TODO-fix hide devices under device_context level
-        let tensor_view = Arc::new(ActTensorTypes::I32Tensor {
+        let tensor_view = Arc::new(RwLock::new(ActTensorTypes::I32Tensor {
             data: TensorView::<i32>::new(data, ElementType::I32, data_shape),
-        });
+        }));
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut data_buffer = UniBuffer::<concrete_backend::Backend, i32>::new(
         //     &self.session.device_context.device,
@@ -552,31 +668,36 @@ impl VM {
         self.tensor_pool.insert(index, tensor_view);
     }
 
-    pub fn get_data_clone(&mut self, index: &usize) -> Arc<ActTensorTypes> {
+    pub fn get_data_clone(&mut self, index: &usize) -> Arc<RwLock<ActTensorTypes>> {
         Arc::clone(&self.tensor_pool[index])
     }
 
+    pub fn get_data_clone_mut(&mut self, index: &usize) -> Arc<RwLock<ActTensorTypes>> {
+        // Arc::clone(&mut self.tensor_pool.get_mut(index).unwrap())
+        self.tensor_pool[index].clone()
+    }
+
     // TODO renaming
-    pub fn get_fdata(&self, index: usize) -> &Vec<f32> {
+    pub fn get_fdata(&self, index: usize) -> Vec<f32> {
         // TODO add guard for array-access-by-index
-        match *self.tensor_pool[&index] {
-            ActTensorTypes::F32Tensor { ref data } => &data.data,
+        match *self.tensor_pool[&index].read().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => data.data.clone(),
             _ => panic!("not support int types"),
         }
     }
 
-    pub fn get_fshape(&self, index: usize) -> &Vec<usize> {
-        match *self.tensor_pool[&index] {
-            ActTensorTypes::F32Tensor { ref data } => &data.shape,
+    pub fn get_fshape(&self, index: usize) -> Vec<usize> {
+        match *self.tensor_pool[&index].read().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => data.shape.clone(),
             _ => panic!("not support int types"),
         }
     }
 
     pub fn push_tensor_pool(&mut self, index: usize, data: Vec<f32>) {
         let data_shape = vec![data.len()];
-        let tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        let tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, data_shape),
-        });
+        }));
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &self.session.device_context.device,
@@ -592,9 +713,9 @@ impl VM {
     }
 
     pub fn push_tensor_buffer(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
-        let tensor_view = Arc::new(ActTensorTypes::F32Tensor {
+        let tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, shape),
-        });
+        }));
         // TODO-trial lowering UniBuffer range, to make session dev independent
         // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
         //     &self.session.device_context.device,

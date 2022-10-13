@@ -1,4 +1,5 @@
-use std::{borrow::Cow, collections::HashMap, fs, iter, ptr, slice, str::FromStr, sync::Arc};
+use std::sync::{Arc, RwLock};
+use std::{borrow::Cow, collections::HashMap, fs, iter, ptr, slice, str::FromStr};
 
 use hal::prelude::*;
 use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Type};
@@ -73,7 +74,7 @@ impl ExecutorLike for ActExecutorTypes {
     fn unary_compute(
         &mut self,
         op: Self::OpCodeType,
-        in_tensor: Arc<Self::TensorType>,
+        in_tensor: Arc<RwLock<Self::TensorType>>,
     ) -> Self::TensorType {
         // debug!("============ on computing unary =============");
         match self {
@@ -93,11 +94,35 @@ impl ExecutorLike for ActExecutorTypes {
         }
     }
 
+    fn unary_compute_v2(
+        &mut self,
+        op: Self::OpCodeType,
+        in_tensor: Arc<RwLock<Self::TensorType>>,
+        out_tensor: Arc<RwLock<Self::TensorType>>,
+    ) -> () {
+        // debug!("============ on computing unary =============");
+        match self {
+            #[cfg(feature = "mock")]
+            ActExecutorTypes::MockExecutor(ref mut _executor) => {
+                _executor.mock_unary_v2::<Self::TensorType>(op.into(), in_tensor, out_tensor);
+            }
+            #[cfg(feature = "vulkan")]
+            ActExecutorTypes::VkGPUExecutor(ref mut _executor) => {
+                panic!("not implemented");
+            }
+            #[cfg(all(feature = "blas"))]
+            ActExecutorTypes::BlasExecutor(ref mut _executor) => {
+                panic!("not implemented");
+            }
+            _ => panic!("not registered backend typeid"),
+        }
+    }
+
     fn binary_compute(
         &mut self,
         op: Self::OpCodeType,
-        lhs_tensor: Arc<Self::TensorType>,
-        rhs_tensor: Arc<Self::TensorType>,
+        lhs_tensor: Arc<RwLock<Self::TensorType>>,
+        rhs_tensor: Arc<RwLock<Self::TensorType>>,
     ) -> Self::TensorType {
         // debug!("============ on computing binary =============");
         match self {
@@ -156,10 +181,10 @@ impl ExecutorLike for ActExecutorTypes {
             }
             #[cfg(feature = "blas")]
             ActExecutorTypes::BlasExecutor(ref mut _executor) => {
-                match *lhs_tensor {
+                match *lhs_tensor.read().unwrap() {
                     ActTensorTypes::F32Tensor { ref data } => {
                         let lhs_data = data.into();
-                        match *rhs_tensor {
+                        match *rhs_tensor.read().unwrap() {
                             ActTensorTypes::F32Tensor { ref data } => {
                                 let rhs_data = data.into();
                                 let out = ActTensorTypes::F32Tensor {
@@ -177,7 +202,7 @@ impl ExecutorLike for ActExecutorTypes {
                     }
                     ActTensorTypes::I32Tensor { ref data } => {
                         let lhs_data = data.into();
-                        match *rhs_tensor {
+                        match *rhs_tensor.read().unwrap() {
                             ActTensorTypes::I32Tensor { ref data } => {
                                 let rhs_data = data.into();
                                 let out = ActTensorTypes::I32Tensor {
@@ -189,6 +214,66 @@ impl ExecutorLike for ActExecutorTypes {
                                 };
                                 // println!("{:#?}", out);
                                 return out;
+                            }
+                            _ => panic!("dtype mismatch"),
+                        }
+                    }
+                    _ => panic!("dtype-comp not implemented"),
+                };
+            }
+            _ => panic!("not registered backend typeid"),
+        }
+    }
+
+    fn binary_compute_v2(
+        &mut self,
+        op: Self::OpCodeType,
+        lhs_tensor: Arc<RwLock<Self::TensorType>>,
+        rhs_tensor: Arc<RwLock<Self::TensorType>>,
+        out_tensor: Arc<RwLock<Self::TensorType>>,
+    ) -> () {
+        // debug!("============ on computing binary =============");
+        match self {
+            #[cfg(feature = "mock")]
+            ActExecutorTypes::MockExecutor(ref mut _executor) => {
+                _executor.mock_binary_v2::<Self::TensorType>(
+                    op.into(),
+                    lhs_tensor,
+                    rhs_tensor,
+                    out_tensor,
+                );
+            }
+            #[cfg(feature = "blas")]
+            ActExecutorTypes::BlasExecutor(ref mut _executor) => {
+                match *lhs_tensor.read().unwrap() {
+                    ActTensorTypes::F32Tensor { ref data } => {
+                        let lhs_data = data.into();
+                        match *rhs_tensor.read().unwrap() {
+                            ActTensorTypes::F32Tensor { ref data } => {
+                                let rhs_data = data.into();
+                                let mut _out = out_tensor.write().unwrap();
+                                *_out = ActTensorTypes::F32Tensor {
+                                    data: _executor
+                                        .binary_compute_owned(op.into(), lhs_data, rhs_data)
+                                        .into(),
+                                };
+                            }
+                            _ => panic!("dtype mismatch"),
+                        }
+                    }
+                    ActTensorTypes::I32Tensor { ref data } => {
+                        let lhs_data = data.into();
+                        match *rhs_tensor.read().unwrap() {
+                            ActTensorTypes::I32Tensor { ref data } => {
+                                let rhs_data = data.into();
+                                let out = ActTensorTypes::I32Tensor {
+                                    // TODO tadd to be replace into binary and unary
+                                    // op to be handled
+                                    data: _executor
+                                        .binary_compute_owned(op.into(), lhs_data, rhs_data)
+                                        .into(),
+                                };
+                                // println!("{:#?}", out);
                             }
                             _ => panic!("dtype mismatch"),
                         }
