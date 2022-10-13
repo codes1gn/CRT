@@ -250,11 +250,17 @@ impl VM {
                             ready_checker,
                             operand_out,
                         );
-                        // TODO check redefinition of operand-out
+                        // solution to redefinition, replace ready-checker with new
                         if self.ready_checkers.contains_key(&operand_out) {
-                            panic!("variable {}, redefined error", operand_out);
+                            // legacy path
+                            // panic!("variable {}, redefined error", operand_out);
+
+                            // new path
+                            self.ready_checkers.remove(&operand_out);
+                            self.ready_checkers.insert_many(operand_out, recv_box);
+                        } else {
+                            self.ready_checkers.insert_many(operand_out, recv_box);
                         }
-                        self.ready_checkers.insert_many(operand_out, recv_box);
                         // recv_box.into_iter().map(|x| {
                         //     // info!("dfjdslfj => {:?}, {:?}", operand_out, x);
                         //     self.ready_checkers.insert(operand_out, x);
