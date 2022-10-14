@@ -34,7 +34,11 @@ fn sequence_test() {
     ";
     // ipt.run_bytecode_eagerly(bytecode);
     ipt.run_bytecode_lazily(bytecode);
-    assert_float_eq!(*ipt.vm.get_fdata(3), vec![0.0; 4], rmax_all <= 0.00001);
+    assert_float_eq!(
+        *ipt.vm.get_raw_vec_f32(3),
+        vec![0.0; 4],
+        rmax_all <= 0.00001
+    );
 }
 
 fn main() {

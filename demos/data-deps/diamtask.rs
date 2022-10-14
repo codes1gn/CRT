@@ -22,7 +22,11 @@ fn sequence_test() {
     %4 = crt.add.f32! %2, %3 : f32\n";
     // ipt.run_bytecode_eagerly(bytecode);
     ipt.run_bytecode_lazily(bytecode);
-    assert_float_eq!(*ipt.vm.get_fdata(4), vec![1.0; 4], rmax_all <= 0.00001);
+    assert_float_eq!(
+        *ipt.vm.get_raw_vec_f32(4),
+        vec![1.0; 4],
+        rmax_all <= 0.00001
+    );
 }
 
 fn main() {

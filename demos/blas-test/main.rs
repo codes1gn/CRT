@@ -23,14 +23,14 @@ fn pressure_test() {
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
-    assert_float_eq!(*ipt.vm.get_fdata(1), vec![8.7], rmax_all <= 0.00001);
+    assert_float_eq!(*ipt.vm.get_raw_vec_f32(1), vec![8.7], rmax_all <= 0.00001);
 
     let status = ipt.run_bytecode_eagerly("%0 = crt.literal.const.f32! 1.3 : f32\n");
     let status = ipt.run_bytecode_eagerly("%1 = crt.add.f32! %0, %1 : f32\n");
     assert_eq!(status.is_ok(), true);
     let status_code = status.unwrap();
     assert_eq!(status_code, 0);
-    assert_float_eq!(*ipt.vm.get_fdata(1), vec![10.], rmax_all <= 0.00001);
+    assert_float_eq!(*ipt.vm.get_raw_vec_f32(1), vec![10.], rmax_all <= 0.00001);
 
     let start = Instant::now();
     for k in 1..1000 {
@@ -41,7 +41,11 @@ fn pressure_test() {
         }
     }
     let duration = start.elapsed();
-    assert_float_eq!(*ipt.vm.get_fdata(1), vec![1308.7039], rmax_all <= 0.00001);
+    assert_float_eq!(
+        *ipt.vm.get_raw_vec_f32(1),
+        vec![1308.7039],
+        rmax_all <= 0.00001
+    );
     println!("time-cost >>>>>>>>>>> {:?}", duration);
 }
 
@@ -59,7 +63,7 @@ fn big_add_test() {
 
     ipt.run_bytecode_eagerly("%3 = crt.add.f32! %1, %0 : f32\n");
     assert_float_eq!(
-        *ipt.vm.get_fdata(3),
+        *ipt.vm.get_raw_vec_f32(3),
         vec![2.0; 34 * 82 * 3],
         rmax_all <= 0.00001
     );
@@ -80,7 +84,7 @@ fn exp_test() {
     // ipt.run_bytecode_eagerly("%2 = crt.exp.f32! %1 : f32\n");
     // ipt.run_bytecode_eagerly("%3 = crt.exp.f32! %2 : f32\n");
     // assert_float_eq!(
-    //     *ipt.vm.get_fdata(3),
+    //     *ipt.vm.get_raw_vec_f32(3),
     //     vec![1.0; 34 * 82 * 3],
     //     rmax_all <= 0.00001
     // );
@@ -99,7 +103,7 @@ fn small_add_test() {
 
     ipt.run_bytecode_eagerly("%4 = crt.add.f32! %1, %0 : f32\n");
     assert_float_eq!(
-        *ipt.vm.get_fdata(4),
+        *ipt.vm.get_raw_vec_f32(4),
         vec![2.2, 4.4, 6.6],
         rmax_all <= 0.00001
     );

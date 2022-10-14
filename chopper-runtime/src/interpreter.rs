@@ -139,7 +139,7 @@ impl Interpreter {
             }
             "list" | "l" => {
                 info!("action: Showing instruction queue");
-                for inst in self.vm.command_buffer() {
+                for inst in self.vm.inst_buffer() {
                     info!("|-- {}", inst);
                 }
                 // TODO
@@ -230,7 +230,7 @@ mod tests {
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(17), vec![13]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(17), vec![13]);
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_fdata(8), vec![1.3]);
+        assert_eq!(*ipt.vm.get_raw_vec_f32(8), vec![1.3]);
     }
 
     #[test]
@@ -257,7 +257,7 @@ mod tests {
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_fdata(8), vec![0f32; 24]);
+        assert_eq!(*ipt.vm.get_raw_vec_f32(8), vec![0f32; 24]);
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod tests {
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_fdata(8), vec![1f32; 24]);
+        assert_eq!(*ipt.vm.get_raw_vec_f32(8), vec![1f32; 24]);
     }
 
     #[test]
@@ -310,15 +310,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_idata(1), vec![1]);
-        assert_eq!(*ipt.vm.get_idata(2), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(1), vec![1]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(2), vec![2]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.add.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(3), vec![3]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(3), vec![3]);
     }
 
     #[test]
@@ -334,15 +334,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_idata(1), vec![1]);
-        assert_eq!(*ipt.vm.get_idata(2), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(1), vec![1]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(2), vec![2]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.sub.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(3), vec![-1]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(3), vec![-1]);
     }
 
     #[test]
@@ -358,15 +358,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_idata(1), vec![1]);
-        assert_eq!(*ipt.vm.get_idata(2), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(1), vec![1]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(2), vec![2]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.mul.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(3), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(3), vec![2]);
     }
 
     #[test]
@@ -382,15 +382,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_idata(1), vec![1]);
-        assert_eq!(*ipt.vm.get_idata(2), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(1), vec![1]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(2), vec![2]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.floordiv.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(3), vec![0]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(3), vec![0]);
     }
 
     #[test]
@@ -406,15 +406,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_idata(1), vec![7]);
-        assert_eq!(*ipt.vm.get_idata(2), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(1), vec![7]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(2), vec![2]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.floordiv.i32! %1, %2 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(3), vec![3]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(3), vec![3]);
     }
 
     #[test]
@@ -430,15 +430,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_float_eq!(*ipt.vm.get_fdata(1), vec![1.1], rmax_all <= 0.00001);
-        assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(1), vec![1.1], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.add.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_float_eq!(*ipt.vm.get_fdata(3), vec![3.3], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(3), vec![3.3], rmax_all <= 0.00001);
     }
 
     #[test]
@@ -454,15 +454,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_float_eq!(*ipt.vm.get_fdata(1), vec![1.1], rmax_all <= 0.00001);
-        assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(1), vec![1.1], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.sub.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_float_eq!(*ipt.vm.get_fdata(3), vec![-1.1], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(3), vec![-1.1], rmax_all <= 0.00001);
     }
 
     #[test]
@@ -478,15 +478,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_float_eq!(*ipt.vm.get_fdata(1), vec![1.1], rmax_all <= 0.00001);
-        assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(1), vec![1.1], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.mul.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_float_eq!(*ipt.vm.get_fdata(3), vec![2.42], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(3), vec![2.42], rmax_all <= 0.00001);
     }
 
     #[test]
@@ -502,15 +502,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_float_eq!(*ipt.vm.get_fdata(1), vec![1.1], rmax_all <= 0.00001);
-        assert_float_eq!(*ipt.vm.get_fdata(2), vec![2.2], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(1), vec![1.1], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(2), vec![2.2], rmax_all <= 0.00001);
 
         // add
         let status = ipt.run_bytecode_eagerly("%3 = crt.div.f32! %1, %2 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_float_eq!(*ipt.vm.get_fdata(3), vec![0.5], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(3), vec![0.5], rmax_all <= 0.00001);
     }
 
     #[test]
@@ -527,15 +527,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_idata(8), vec![3]);
-        assert_eq!(*ipt.vm.get_idata(7), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(8), vec![3]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(7), vec![2]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%4 = crt.add.i32! %8, %7 : i32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_eq!(*ipt.vm.get_idata(4), vec![5]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(4), vec![5]);
 
         // sub
         let status = ipt.run_bytecode_eagerly("%5 = crt.sub.i32! %1, %4 : i32\n");
@@ -543,7 +543,7 @@ mod tests {
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         // TODO package this assert macro into utils, hide rmax_all setting from hardcode
-        assert_eq!(*ipt.vm.get_idata(5), vec![2]);
+        assert_eq!(*ipt.vm.get_raw_vec_i32(5), vec![2]);
     }
 
     #[test]
@@ -560,15 +560,15 @@ mod tests {
         assert_eq!(status_code, 0);
 
         // inspect data valid
-        assert_eq!(*ipt.vm.get_fdata(8), vec![1.3]);
-        assert_eq!(*ipt.vm.get_fdata(7), vec![2.9]);
+        assert_eq!(*ipt.vm.get_raw_vec_f32(8), vec![1.3]);
+        assert_eq!(*ipt.vm.get_raw_vec_f32(7), vec![2.9]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%4 = crt.add.f32! %8, %7 : f32\n");
         assert_eq!(status.is_ok(), true);
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
-        assert_float_eq!(*ipt.vm.get_fdata(4), vec![4.2], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(4), vec![4.2], rmax_all <= 0.00001);
 
         // sub
         let status = ipt.run_bytecode_eagerly("%5 = crt.sub.f32! %1, %4 : f32\n");
@@ -576,7 +576,7 @@ mod tests {
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         // TODO package this assert macro into utils, hide rmax_all setting from hardcode
-        assert_float_eq!(*ipt.vm.get_fdata(5), vec![3.2], rmax_all <= 0.00001);
+        assert_float_eq!(*ipt.vm.get_raw_vec_f32(5), vec![3.2], rmax_all <= 0.00001);
     }
 
     #[test]
@@ -593,7 +593,11 @@ mod tests {
         ";
         // ipt.run_bytecode_eagerly(bytecode);
         ipt.run_bytecode_lazily(bytecode);
-        assert_float_eq!(*ipt.vm.get_fdata(4), vec![3.0; 4], rmax_all <= 0.00001);
+        assert_float_eq!(
+            *ipt.vm.get_raw_vec_f32(4),
+            vec![3.0; 4],
+            rmax_all <= 0.00001
+        );
         // ok
     }
 
@@ -614,17 +618,17 @@ mod tests {
 
         // inspect data valid
         assert_float_eq!(
-            *ipt.vm.get_fdata(0),
+            *ipt.vm.get_raw_vec_f32(0),
             vec![1.1, 2.2, 3.3, 4.4, 5.5, 6.6],
             rmax_all <= 0.00001
         );
-        assert_eq!(*ipt.vm.get_fshape(0), vec![2, 3]);
+        assert_eq!(*ipt.vm.get_tensor_shape(0), vec![2, 3]);
         assert_float_eq!(
-            *ipt.vm.get_fdata(1),
+            *ipt.vm.get_raw_vec_f32(1),
             vec![2.2, 3.3, 3.3, 1.1, 3.3, 2.2],
             rmax_all <= 0.00001
         );
-        assert_eq!(*ipt.vm.get_fshape(1), vec![2, 3]);
+        assert_eq!(*ipt.vm.get_tensor_shape(1), vec![2, 3]);
 
         // add
         let status = ipt.run_bytecode_eagerly("%4 = crt.add.f32! %0, %1 : f32\n");
@@ -632,7 +636,7 @@ mod tests {
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_float_eq!(
-            *ipt.vm.get_fdata(4),
+            *ipt.vm.get_raw_vec_f32(4),
             vec![3.3, 5.5, 6.6, 5.5, 8.8, 8.8],
             rmax_all <= 0.00001
         );
@@ -655,17 +659,17 @@ mod tests {
 
         // inspect data valid
         assert_float_eq!(
-            *ipt.vm.get_fdata(9),
+            *ipt.vm.get_raw_vec_f32(9),
             vec![1.1, 2.2, 3.3, 4.4, 5.5, 6.6],
             rmax_all <= 0.00001
         );
-        assert_eq!(*ipt.vm.get_fshape(9), vec![2, 3]);
+        assert_eq!(*ipt.vm.get_tensor_shape(9), vec![2, 3]);
         assert_float_eq!(
-            *ipt.vm.get_fdata(7),
+            *ipt.vm.get_raw_vec_f32(7),
             vec![2.2, 3.3, 3.3, 1.1, 3.3, 2.2],
             rmax_all <= 0.00001
         );
-        assert_eq!(*ipt.vm.get_fshape(7), vec![2, 3]);
+        assert_eq!(*ipt.vm.get_tensor_shape(7), vec![2, 3]);
 
         // sub
         let status = ipt.run_bytecode_eagerly("%5 = crt.sub.f32! %7, %9 : f32\n");
@@ -673,7 +677,7 @@ mod tests {
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_float_eq!(
-            *ipt.vm.get_fdata(5),
+            *ipt.vm.get_raw_vec_f32(5),
             vec![1.1, 1.1, 0.0, -3.3, -2.2, -4.4],
             rmax_all <= 0.00001
         );
@@ -697,17 +701,17 @@ mod tests {
 
         // inspect data valid
         assert_float_eq!(
-            *ipt.vm.get_fdata(9),
+            *ipt.vm.get_raw_vec_f32(9),
             vec![1., 2., 3., 4., 5., 6.],
             rmax_all <= 0.00001
         );
-        assert_eq!(*ipt.vm.get_fshape(9), vec![2, 3]);
+        assert_eq!(*ipt.vm.get_tensor_shape(9), vec![2, 3]);
         assert_float_eq!(
-            *ipt.vm.get_fdata(7),
+            *ipt.vm.get_raw_vec_f32(7),
             vec![1., 1., 1., 1., 1., 1.],
             rmax_all <= 0.00001
         );
-        assert_eq!(*ipt.vm.get_fshape(7), vec![3, 2]);
+        assert_eq!(*ipt.vm.get_tensor_shape(7), vec![3, 2]);
 
         // matmul, temparilly faked with add
         let status = ipt.run_bytecode_eagerly("%5 = crt.matmul.f32! %7, %9 : f32\n");
@@ -715,7 +719,7 @@ mod tests {
         let status_code = status.unwrap();
         assert_eq!(status_code, 0);
         assert_float_eq!(
-            *ipt.vm.get_fdata(5),
+            *ipt.vm.get_raw_vec_f32(5),
             vec![5., 7., 9., 5., 7., 9., 5., 7., 9.],
             rmax_all <= 0.00001
         );
@@ -728,7 +732,7 @@ mod tests {
         );
         let status = ipt.run_bytecode_eagerly("%6 = crt.matmul.f32! %9, %7 : f32\n");
         assert_float_eq!(
-            *ipt.vm.get_fdata(6),
+            *ipt.vm.get_raw_vec_f32(6),
             vec![6., 6., 15., 15.],
             rmax_all <= 0.00001
         );
@@ -749,7 +753,7 @@ mod tests {
 
         ipt.run_bytecode_eagerly("%3 = crt.add.f32! %1, %0 : f32\n");
         assert_float_eq!(
-            *ipt.vm.get_fdata(3),
+            *ipt.vm.get_raw_vec_f32(3),
             vec![2.0; 34 * 82 * 3],
             rmax_all <= 0.00001
         );

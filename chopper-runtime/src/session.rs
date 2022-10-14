@@ -242,7 +242,7 @@ impl HostSession {
         out_tensor
     }
 
-    pub fn launch_binary_compute(
+    pub fn launch_blocking_binary_compute(
         &mut self,
         opcode: CRTOpCode,
         lhs_tensor: Arc<RwLock<ActTensorTypes>>,
@@ -256,7 +256,7 @@ impl HostSession {
             respond_to: send,
         };
         debug!(
-            "::launch_binary_compute::send msg to actor_system {:#?}",
+            "::launch_blocking_binary_compute::send msg to actor_system {:#?}",
             opmsg
         );
         self.async_runtime.block_on(async {
@@ -318,7 +318,7 @@ mod tests {
         //     rhs_tensor_view,
         // );
         let opcode = CRTOpCode::ADDF32;
-        let mut result_buffer = se.launch_binary_compute(
+        let mut result_buffer = se.launch_blocking_binary_compute(
             opcode,
             Arc::clone(&lhs_tensor_view),
             Arc::clone(&rhs_tensor_view),
@@ -349,7 +349,7 @@ mod tests {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
         }));
         let opcode = CRTOpCode::SUBF32;
-        let mut result_buffer = se.launch_binary_compute(
+        let mut result_buffer = se.launch_blocking_binary_compute(
             opcode,
             Arc::clone(&lhs_tensor_view),
             Arc::clone(&rhs_tensor_view),
@@ -380,7 +380,7 @@ mod tests {
             data: TensorView::<f32>::new(rhs, ElementType::F32, rhs_shape),
         }));
         let opcode = CRTOpCode::MATMULF32;
-        let mut result_buffer = se.launch_binary_compute(
+        let mut result_buffer = se.launch_blocking_binary_compute(
             opcode,
             Arc::clone(&lhs_tensor_view),
             Arc::clone(&rhs_tensor_view),
