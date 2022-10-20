@@ -101,10 +101,6 @@ impl Interpreter {
             self.vm.push_bytecode_into_cmdbuffer(byte);
         }
         let status = self.vm.run_eagerly();
-        // let status = self.vm.run_eagerly();
-        // TODO keep this wait here until all done, since currently we do not wait all spawned
-        // threads done their tasks
-        // thread::sleep(time::Duration::from_millis((6000) as u64));
         status
     }
 
@@ -116,10 +112,6 @@ impl Interpreter {
             self.vm.push_bytecode_into_cmdbuffer(byte);
         }
         let status = self.vm.run_lazily();
-        // let status = self.vm.run_eagerly();
-        // TODO keep this wait here until all done, since currently we do not wait all spawned
-        // threads done their tasks
-        thread::sleep(time::Duration::from_millis((4000) as u64));
         status
     }
 
@@ -755,6 +747,70 @@ mod tests {
         assert_float_eq!(
             *ipt.vm.get_raw_vec_f32(3),
             vec![2.0; 34 * 82 * 3],
+            rmax_all <= 0.00001
+        );
+    }
+
+    #[test]
+    fn test_reshape() {
+        // step 1, init device instance, also in VM instance init part
+        // let ist = DeviceInstance::new();
+        let mut ipt = Interpreter::new();
+        ipt.init(1);
+
+        ipt.run_bytecode_eagerly("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode_eagerly("%1 = crt.reshape! %0, [102 82 1]\n");
+
+        assert_float_eq!(
+            *ipt.vm.get_raw_vec_f32(1),
+            vec![1.0; 102 * 82 * 1],
+            rmax_all <= 0.00001
+        );
+        assert_eq!(*ipt.vm.get_tensor_shape(1), vec![102, 82, 1],);
+    }
+}
+
+#[cfg(feature = "mock")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reshape() {
+        // step 1, init device instance, also in VM instance init part
+        // let ist = DeviceInstance::new();
+        let mut ipt = Interpreter::new();
+        ipt.init(1);
+
+        ipt.run_bytecode_eagerly("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode_eagerly("%1 = crt.reshape! %0, [102 82 1]\n");
+
+        assert_eq!(*ipt.vm.get_tensor_shape(0), vec![34, 82, 3],);
+
+        assert_eq!(*ipt.vm.get_tensor_shape(1), vec![102, 82, 1],);
+
+        assert_float_eq!(
+            *ipt.vm.get_raw_vec_f32(1),
+            vec![1.0; 102 * 82 * 1],
+            rmax_all <= 0.00001
+        );
+    }
+
+    #[test]
+    fn test_reshape_inplace() {
+        // step 1, init device instance, also in VM instance init part
+        // let ist = DeviceInstance::new();
+        let mut ipt = Interpreter::new();
+        ipt.init(1);
+
+        ipt.run_bytecode_eagerly("%0 = crt.helper.svalue.tensor! ones<[34 82 3]> : f32\n");
+        ipt.run_bytecode_eagerly("%0 = crt.reshape! %0, [102 82 1]\n");
+
+        assert_eq!(*ipt.vm.get_tensor_shape(0), vec![102, 82, 1],);
+
+        assert_float_eq!(
+            *ipt.vm.get_raw_vec_f32(0),
+            vec![1.0; 102 * 82 * 1],
             rmax_all <= 0.00001
         );
     }

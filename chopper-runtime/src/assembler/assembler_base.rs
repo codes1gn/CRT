@@ -41,6 +41,9 @@ pub enum Token {
     DType {
         element_type: ElementType,
     },
+    Shape {
+        raw_shape: Vec<usize>,
+    },
 }
 
 // The abstract struct for asm inst.
@@ -271,6 +274,18 @@ impl AsmInstruction {
                     let values = value.to_le_bytes();
                     for _value in values {
                         results.push(_value);
+                    }
+                }
+                Token::Shape { raw_shape } => {
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&raw_shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
                     }
                 }
                 Token::UninitTensor {

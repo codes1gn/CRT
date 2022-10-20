@@ -16,7 +16,7 @@ use crate::assembler::parse_type::*;
 named!(pub parse_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         _inst: alt!(
-            parse_halt | parse_return | parse_binary_assignment | parse_unary_assignment
+            parse_halt | parse_return | parse_binary_assignment | parse_unary_assignment | parse_unary_assignment_with_shape_argument
         ) >> (
             _inst
         )
@@ -143,6 +143,29 @@ named!(
                 operand2: Some(in_operand),
                 operand3: None,
 
+            }
+        )
+    )
+);
+
+// unary-assignment-with-indexed-arg ::= out-operand = opcode in-operand, indexed-arg
+// "%0 = crt.reshape! %1, [2 3]\n",
+named!(
+    parse_unary_assignment_with_shape_argument<CompleteStr, AsmInstruction>,
+    do_parse!(
+        out_operand: parse_operand >>
+        tag!("=") >>
+        _s1: space0 >>
+        _opcode: parse_opcode >>
+        in_operand: parse_operand >>
+        tag!(",") >>
+        _shape: parse_shape >>
+        (
+            AsmInstruction {
+                opcode: _opcode,
+                operand1: Some(out_operand),
+                operand2: Some(in_operand),
+                operand3: Some(_shape),
             }
         )
     )
@@ -358,5 +381,25 @@ mod tests {
         //         0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0
         //     ]
         // )
+    }
+
+    #[test]
+    fn test_parse_reshape() {
+        // w. \n
+        let result = parse_unary_assignment_with_shape_argument(CompleteStr(
+            "%0 = crt.reshape! %1, [2 3]\n",
+        ));
+        println!("{:?}", result);
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1.to_bytes();
+    }
+
+    #[test]
+    fn test_parse_reshape_inst() {
+        // w. \n
+        let result = parse_instruction(CompleteStr("%0 = crt.reshape! %1, [2 3]\n"));
+        println!("{:?}", result);
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1.to_bytes();
     }
 }

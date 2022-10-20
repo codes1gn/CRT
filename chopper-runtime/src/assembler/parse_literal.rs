@@ -57,6 +57,20 @@ named!(pub parse_raw_float_literal<CompleteStr, f32>,
     )
 );
 
+named!(pub parse_shape<CompleteStr, Token>,
+    do_parse!(
+        _s: space0 >>
+        tag!("[") >>
+        data: many1!(
+            parse_usize_literal
+        ) >>
+        tag!("]") >>
+        (
+            Token::Shape { raw_shape: data }
+        )
+    )
+);
+
 named!(pub parse_integer_list<CompleteStr, Vec<usize>>,
     do_parse!(
         _s: space0 >>

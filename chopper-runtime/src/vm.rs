@@ -460,6 +460,37 @@ impl VM {
                 );
                 Ok(0)
             }
+            CRTOpCode::RESHAPE => {
+                let operand_out = self.decode_u8() as usize;
+                let operand_in = self.decode_u8() as usize;
+                let shape_size = self.decode_vec_len() as usize;
+                let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
+                let in_dataview = self.get_tensor(&operand_in);
+                // if operand_in != operand_out
+                if operand_in == operand_out {
+                    match *in_dataview.write().unwrap() {
+                        ActTensorTypes::F32Tensor { ref mut data } => {
+                            let lhs_elements: usize = data.shape.iter().product();
+                            let rhs_elements: usize = raw_shape_vec.iter().product();
+                            assert_eq!(lhs_elements, rhs_elements);
+                            data.shape = raw_shape_vec;
+                        }
+                        _ => panic!("not support int types"),
+                    }
+                    Ok(0)
+                } else {
+                    match *in_dataview.read().unwrap() {
+                        ActTensorTypes::F32Tensor { ref data } => {
+                            let lhs_elements: usize = data.shape.iter().product();
+                            let rhs_elements: usize = raw_shape_vec.iter().product();
+                            assert_eq!(lhs_elements, rhs_elements);
+                            self.push_tensor_buffer(operand_out, data.data.clone(), raw_shape_vec);
+                        }
+                        _ => panic!("not support int types"),
+                    }
+                    Ok(0)
+                }
+            }
             _ => {
                 panic!("Not Implemented Error Execution Step Code");
             }
@@ -533,9 +564,29 @@ impl VM {
         }
     }
 
+    pub fn dump_tensor_f32(&self, index: usize) {
+        match *self.tensor_pool[&index].read().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => {
+                data.clone().dump();
+            }
+            _ => panic!("not support int types"),
+        }
+    }
+
     pub fn get_tensor_shape(&self, index: usize) -> Vec<usize> {
         match *self.tensor_pool[&index].read().unwrap() {
             ActTensorTypes::F32Tensor { ref data } => data.shape.clone(),
+            _ => panic!("not support int types"),
+        }
+    }
+
+    pub fn assert_tensor_shape(&mut self, index: usize, shape: Vec<usize>) -> () {
+        match *self.tensor_pool[&index].write().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => {
+                let lhs_elements: usize = data.shape.iter().product();
+                let rhs_elements: usize = shape.iter().product();
+                assert_eq!(lhs_elements, rhs_elements);
+            }
             _ => panic!("not support int types"),
         }
     }

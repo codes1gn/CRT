@@ -24,6 +24,10 @@ path = "data-deps/diamtask.rs"
 name = "crt_test"
 path = "crt-raptors/main.rs"
 
+[[bin]]
+name = "onnx_mnist"
+path = "onnx-mnist/main.rs"
+
 [dependencies]
 log = "0.4"
 hal = { path = "../hal", package = "gfx-hal", version = "0.9.0" }

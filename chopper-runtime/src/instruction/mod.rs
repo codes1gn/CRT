@@ -34,6 +34,7 @@ pub enum CRTOpCode {
     // Unary 16
     EXPF32,
     RETV,
+    RESHAPE,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -135,6 +136,9 @@ impl From<u8> for CRTOpCode {
             17 => {
                 return CRTOpCode::RETV;
             }
+            18 => {
+                return CRTOpCode::RESHAPE;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -207,6 +211,7 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("crt.add.f32") => CRTOpCode::ADDF32,
             CompleteStr("crt.sub.f32") => CRTOpCode::SUBF32,
             CompleteStr("crt.exp.f32") => CRTOpCode::EXPF32,
+            CompleteStr("crt.reshape") => CRTOpCode::RESHAPE,
             CompleteStr("crt.mul.f32") => CRTOpCode::MULF32,
             CompleteStr("crt.matmul.f32") => CRTOpCode::MATMULF32,
             CompleteStr("crt.div.f32") => CRTOpCode::DIVF32,
@@ -259,6 +264,7 @@ impl From<CRTOpCode> for MockOpCode {
     fn from(item: CRTOpCode) -> Self {
         match item {
             CRTOpCode::EXPF32 => MockOpCode::ExpOp,
+            CRTOpCode::RESHAPE => MockOpCode::ReshapeOp,
             CRTOpCode::ADDF32 => MockOpCode::AddOp,
             CRTOpCode::SUBF32 => MockOpCode::SubOp,
             CRTOpCode::MULF32 => MockOpCode::MulOp,
@@ -278,6 +284,7 @@ impl From<MockOpCode> for CRTOpCode {
     fn from(item: MockOpCode) -> Self {
         match item {
             MockOpCode::ExpOp => CRTOpCode::EXPF32,
+            MockOpCode::ReshapeOp => CRTOpCode::RESHAPE,
             MockOpCode::AddOp => CRTOpCode::ADDF32,
             MockOpCode::SubOp => CRTOpCode::SUBF32,
             MockOpCode::MulOp => CRTOpCode::MULF32,

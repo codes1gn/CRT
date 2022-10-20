@@ -35,6 +35,12 @@ impl<T> TensorView<T> {
             shape: shape,
         }
     }
+
+    pub fn dump(&self) -> () {
+        println!(" ===== dump TensorView ===== ");
+        println!("dtype = {:?}", self.dtype);
+        println!("shape = {:?}", self.shape);
+    }
 }
 
 impl<T> TensorLike for TensorView<T> {}
