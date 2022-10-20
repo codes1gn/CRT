@@ -161,7 +161,6 @@ impl VM {
     // 2u8, eager + non-blocking + non-consuming-inputs
     // 3u8, lazy
     fn step_impl(&mut self, exec_mode: u8) -> Result<u8, RuntimeStatusError> {
-        info!("::vm::execute step eagerly");
         let _inst = self.fetch_instruction().unwrap();
         match _inst {
             CRTOpCode::HALT => {
@@ -467,28 +466,100 @@ impl VM {
                 let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
                 let in_dataview = self.get_tensor(&operand_in);
                 // if operand_in != operand_out
-                if operand_in == operand_out {
-                    match *in_dataview.write().unwrap() {
-                        ActTensorTypes::F32Tensor { ref mut data } => {
-                            let lhs_elements: usize = data.shape.iter().product();
-                            let rhs_elements: usize = raw_shape_vec.iter().product();
-                            assert_eq!(lhs_elements, rhs_elements);
-                            data.shape = raw_shape_vec;
+                match exec_mode {
+                    // should deprecate since it is not a safe mode that consumes
+                    // try to learn from functional, consumes inputs is also a side-effect
+                    1u8 => {
+                        if operand_in == operand_out {
+                            match *in_dataview.write().unwrap() {
+                                ActTensorTypes::F32Tensor { ref mut data } => {
+                                    let lhs_elements: usize = data.shape.iter().product();
+                                    let rhs_elements: usize = raw_shape_vec.iter().product();
+                                    assert_eq!(lhs_elements, rhs_elements);
+                                    data.shape = raw_shape_vec;
+                                }
+                                _ => panic!("not support int types"),
+                            }
+                            return Ok(0);
+                        } else {
+                            match *in_dataview.read().unwrap() {
+                                ActTensorTypes::F32Tensor { ref data } => {
+                                    let lhs_elements: usize = data.shape.iter().product();
+                                    let rhs_elements: usize = raw_shape_vec.iter().product();
+                                    assert_eq!(lhs_elements, rhs_elements);
+                                    self.push_tensor_buffer(
+                                        operand_out,
+                                        data.data.clone(),
+                                        raw_shape_vec,
+                                    );
+                                }
+                                _ => panic!("not support int types"),
+                            }
+                            return Ok(0);
                         }
-                        _ => panic!("not support int types"),
                     }
-                    Ok(0)
-                } else {
-                    match *in_dataview.read().unwrap() {
-                        ActTensorTypes::F32Tensor { ref data } => {
-                            let lhs_elements: usize = data.shape.iter().product();
-                            let rhs_elements: usize = raw_shape_vec.iter().product();
-                            assert_eq!(lhs_elements, rhs_elements);
-                            self.push_tensor_buffer(operand_out, data.data.clone(), raw_shape_vec);
+                    2u8 => {
+                        // non-consuming-inputs-style + non-blocking-style
+                        info!("::vm::poll ready-checker for tensor #{}", operand_in);
+                        let ready_checker = self
+                            .ready_checkers
+                            .get_vec_mut(&operand_in)
+                            .expect(
+                                &format!("failed to fetch ready-checker {}", operand_in)
+                                    .to_string(),
+                            )
+                            .remove(0 as usize);
+
+                        // create a future-ready tensor
+                        // TODO change data part into Option with a None init
+                        // let output_placeholder = self.create_placeholder(&operand_in);
+                        info!("::create placeholder tensor for ret-value-tensor");
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        if operand_in == operand_out {
+                            match *in_dataview.write().unwrap() {
+                                ActTensorTypes::F32Tensor { ref mut data } => {
+                                    let lhs_elements: usize = data.shape.iter().product();
+                                    let rhs_elements: usize = raw_shape_vec.iter().product();
+                                    assert_eq!(lhs_elements, rhs_elements);
+                                    data.shape = raw_shape_vec;
+                                }
+                                _ => panic!("not support int types"),
+                            }
+                        } else {
+                            match *in_dataview.read().unwrap() {
+                                ActTensorTypes::F32Tensor { ref data } => {
+                                    let lhs_elements: usize = data.shape.iter().product();
+                                    let rhs_elements: usize = raw_shape_vec.iter().product();
+                                    assert_eq!(lhs_elements, rhs_elements);
+                                    self.push_tensor_buffer(
+                                        operand_out,
+                                        data.data.clone(),
+                                        raw_shape_vec,
+                                    );
+                                }
+                                _ => panic!("not support int types"),
+                            }
                         }
-                        _ => panic!("not support int types"),
+                        // solution to redefinition, replace ready-checker with new
+                        let (notifiers, recv_boxes) = self.build_notifiers_and_ready_checkers(4);
+                        for _notifier in notifiers.into_iter() {
+                            _notifier.send(0u8);
+                        }
+                        if self.ready_checkers.contains_key(&operand_out) {
+                            // legacy path
+                            // panic!("variable {}, redefined error", operand_out);
+
+                            // new path
+                            self.ready_checkers.remove(&operand_out);
+                            self.ready_checkers.insert_many(operand_out, recv_boxes);
+                        } else {
+                            self.ready_checkers.insert_many(operand_out, recv_boxes);
+                        }
+                        info!("::vm::store ready-checker for tensor #{}", operand_out);
+
+                        Ok(0)
                     }
-                    Ok(0)
+                    _ => panic!("unknown exec-mode"),
                 }
             }
             _ => {
@@ -565,11 +636,12 @@ impl VM {
     }
 
     pub fn dump_tensor_f32(&self, index: usize) {
+        info!("try dump tensor at #{:?}", index);
         match *self.tensor_pool[&index].read().unwrap() {
             ActTensorTypes::F32Tensor { ref data } => {
                 data.clone().dump();
             }
-            _ => panic!("not support int types"),
+            _ => panic!("not support int types for #{:?}", index),
         }
     }
 
@@ -640,7 +712,7 @@ impl VM {
 
     // entry functions for execute, that is public
     pub fn lazy_step(&mut self) -> Result<u8, RuntimeStatusError> {
-        info!("::vm::eager-step");
+        info!("::vm::lazy-step");
         if self.program_counter >= self.inst_buffer.len() {
             info!("::vm::cmd-buffer empty >> halt");
             return Err(RuntimeStatusError::EXEC_FINISH);

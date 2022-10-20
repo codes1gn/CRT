@@ -95,7 +95,10 @@ impl Interpreter {
 
     pub fn run_bytecode_eagerly(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
         let parsed_program = parse_bytecode(CompleteStr(bytecode));
-        let (_, result_program) = parsed_program.expect("failed to parse bytecode");
+        // add assertion here to avoid semantic error in bytecode
+        assert_eq!(parsed_program.is_ok(), true);
+        let (_remain, result_program) = parsed_program.unwrap();
+        assert_eq!(_remain.is_empty(), true);
         let bytecode = result_program.to_bytes();
         for byte in bytecode {
             self.vm.push_bytecode_into_cmdbuffer(byte);
@@ -106,7 +109,10 @@ impl Interpreter {
 
     pub fn run_bytecode_lazily(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
         let parsed_program = parse_bytecode(CompleteStr(bytecode));
-        let (_, result_program) = parsed_program.expect("failed to parse bytecode");
+        assert_eq!(parsed_program.is_ok(), true);
+        let (_remain, result_program) = parsed_program.expect("failed to parse bytecode");
+        info!("remain program = {:?}", _remain);
+        assert_eq!(_remain.is_empty(), true);
         let bytecode = result_program.to_bytes();
         for byte in bytecode {
             self.vm.push_bytecode_into_cmdbuffer(byte);

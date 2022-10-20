@@ -17,7 +17,9 @@ named!(pub parse_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         _inst: alt!(
             parse_halt | parse_return | parse_binary_assignment | parse_unary_assignment | parse_unary_assignment_with_shape_argument
-        ) >> (
+        ) >>
+        opt!(multispace) >>
+        (
             _inst
         )
     )
@@ -160,6 +162,7 @@ named!(
         in_operand: parse_operand >>
         tag!(",") >>
         _shape: parse_shape >>
+        opt!(multispace) >>
         (
             AsmInstruction {
                 opcode: _opcode,
@@ -389,17 +392,15 @@ mod tests {
         let result = parse_unary_assignment_with_shape_argument(CompleteStr(
             "%0 = crt.reshape! %1, [2 3]\n",
         ));
-        println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
-        let _bytes_result = result.unwrap().1.to_bytes();
+        assert_eq!(result.unwrap().0.is_empty(), true);
     }
 
     #[test]
     fn test_parse_reshape_inst() {
         // w. \n
         let result = parse_instruction(CompleteStr("%0 = crt.reshape! %1, [2 3]\n"));
-        println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
-        let _bytes_result = result.unwrap().1.to_bytes();
+        assert_eq!(result.unwrap().0.is_empty(), true);
     }
 }
