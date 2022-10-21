@@ -35,6 +35,7 @@ pub enum CRTOpCode {
     EXPF32,
     RETV,
     RESHAPE,
+    TRANSPOSE,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -139,6 +140,9 @@ impl From<u8> for CRTOpCode {
             18 => {
                 return CRTOpCode::RESHAPE;
             }
+            19 => {
+                return CRTOpCode::TRANSPOSE;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -212,10 +216,13 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("crt.sub.f32") => CRTOpCode::SUBF32,
             CompleteStr("crt.exp.f32") => CRTOpCode::EXPF32,
             CompleteStr("crt.reshape") => CRTOpCode::RESHAPE,
+            CompleteStr("crt.transpose") => CRTOpCode::TRANSPOSE,
             CompleteStr("crt.mul.f32") => CRTOpCode::MULF32,
             CompleteStr("crt.matmul.f32") => CRTOpCode::MATMULF32,
             CompleteStr("crt.div.f32") => CRTOpCode::DIVF32,
-            _ => CRTOpCode::ILLEGAL,
+            _ => {
+                panic!("unknown inst");
+            }
         }
     }
 }

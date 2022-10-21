@@ -49,47 +49,9 @@ mod tests {
 
     #[test]
     fn test_load_op() {
-        let result = parse_opcode(CompleteStr("lload!"));
-        assert_eq!(result.is_ok(), true);
-        let (rest, token) = result.unwrap();
-        assert_eq!(
-            token,
-            Token::BytecodeOpCode {
-                code: CRTOpCode::ILLEGAL
-            }
-        );
-        assert_eq!(rest, CompleteStr(""));
-        let result = parse_opcode(CompleteStr("lload!"));
-        assert_eq!(
-            result.unwrap().1,
-            Token::BytecodeOpCode {
-                code: CRTOpCode::ILLEGAL
-            }
-        );
-        let result = parse_opcode(CompleteStr("l oad!"));
-        assert_eq!(
-            result.unwrap().1,
-            Token::BytecodeOpCode {
-                code: CRTOpCode::ILLEGAL
-            }
-        );
-        // case sensitive
-        let result = parse_opcode(CompleteStr("Load!"));
-        assert_eq!(
-            result.unwrap().1,
-            Token::BytecodeOpCode {
-                code: CRTOpCode::ILLEGAL
-            }
-        );
-        let result = parse_opcode(CompleteStr("LoAd!"));
-        assert_eq!(
-            result.unwrap().1,
-            Token::BytecodeOpCode {
-                code: CRTOpCode::ILLEGAL
-            }
-        );
         // test load
         let result = parse_opcode(CompleteStr("load!"));
+        assert_eq!(result.is_ok(), true);
         assert_eq!(
             result.unwrap().1,
             Token::BytecodeOpCode {

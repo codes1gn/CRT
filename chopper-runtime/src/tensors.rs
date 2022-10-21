@@ -36,8 +36,8 @@ impl<T> TensorView<T> {
         }
     }
 
-    pub fn dump(&self) -> () {
-        println!(" ===== dump TensorView ===== ");
+    pub fn dump(&self, slot: usize) -> () {
+        println!(" ===== dump TensorView at slot #{:?} ===== ", slot);
         println!("dtype = {:?}", self.dtype);
         println!("shape = {:?}", self.shape);
     }

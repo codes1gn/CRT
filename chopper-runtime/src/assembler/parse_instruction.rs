@@ -376,19 +376,10 @@ mod tests {
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
-        // assert_eq!(
-        //     _bytes_result,
-        //     vec![
-        //         12, 0, 32, 0, 6, 0, 0, 0, 0, 0, 0, 0, 205, 204, 140, 63, 205, 204, 12, 64, 51, 51,
-        //         83, 64, 205, 204, 140, 64, 0, 0, 176, 64, 51, 51, 211, 64, 24, 0, 2, 0, 0, 0, 0, 0,
-        //         0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0
-        //     ]
-        // )
     }
 
     #[test]
     fn test_parse_reshape() {
-        // w. \n
         let result = parse_unary_assignment_with_shape_argument(CompleteStr(
             "%0 = crt.reshape! %1, [2 3]\n",
         ));
@@ -397,9 +388,26 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_transpose() {
+        let result = parse_unary_assignment_with_shape_argument(CompleteStr(
+            "%0 = crt.transpose! %1, [2 3]\n",
+        ));
+        assert_eq!(result.is_ok(), true);
+        let (_remain, _inst) = result.unwrap();
+        assert_eq!(_remain.is_empty(), true);
+        _inst.to_bytes();
+    }
+
+    #[test]
     fn test_parse_reshape_inst() {
-        // w. \n
         let result = parse_instruction(CompleteStr("%0 = crt.reshape! %1, [2 3]\n"));
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap().0.is_empty(), true);
+    }
+
+    #[test]
+    fn test_parse_transpose_inst() {
+        let result = parse_instruction(CompleteStr("%0 = crt.transpose! %1, [2 3]\n"));
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap().0.is_empty(), true);
     }

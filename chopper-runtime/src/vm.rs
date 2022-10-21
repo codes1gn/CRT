@@ -153,6 +153,13 @@ impl VM {
         (senders, receivers)
     }
 
+    fn get_ready_checker_at_pos(&mut self, pos: usize) -> oneshot::Receiver<u8> {
+        self.ready_checkers
+            .get_vec_mut(&pos)
+            .unwrap()
+            .remove(0 as usize)
+    }
+
     // TODO may replace status with a enum
     // TODO may replace exec_mode with enum
     // TODO exec_mode =
@@ -169,6 +176,7 @@ impl VM {
             }
             CRTOpCode::ILLEGAL => {
                 info!("::vm::halt-with-Illegal-Instruction");
+                // panic!("HALT with ILLEGAL-INST {:?}", RuntimeStatusError::RT_ERROR);
                 Err(RuntimeStatusError::RT_ERROR)
             }
             CRTOpCode::RETV => {
@@ -211,17 +219,6 @@ impl VM {
                 match exec_mode {
                     // should deprecate since it is not a safe mode that consumes
                     // try to learn from functional, consumes inputs is also a side-effect
-                    0u8 => {
-                        // consuming-inputs-style + blocking-style
-                        info!("::vm::call-session-launch-unary-compute eager+owned+blocking");
-                        let outs = self
-                            .session
-                            .launch_blocking_unary_compute(opcode, in_dataview);
-                        info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        self.tensor_pool
-                            .insert(operand_out, Arc::new(RwLock::new(outs)));
-                        Ok(0)
-                    }
                     1u8 => {
                         // non-consuming-inputs-style + blocking-style
                         info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
@@ -235,12 +232,15 @@ impl VM {
                     }
                     2u8 => {
                         // non-consuming-inputs-style + non-blocking-style
-                        info!("::vm::poll ready-checker for tensor #{}", operand_in);
+                        info!(
+                            "::vm::poll ready-checker for tensor #{} -- DATADEP",
+                            operand_in
+                        );
                         let ready_checker = self
                             .ready_checkers
                             .get_vec_mut(&operand_in)
                             .expect(
-                                &format!("failed to fetch ready-checker {}", operand_in)
+                                &format!("failed to fetch ready-checker {} -- DATADEP", operand_in)
                                     .to_string(),
                             )
                             .remove(0 as usize);
@@ -285,7 +285,10 @@ impl VM {
                         //     let recvb = recv_box.into_iter().next().unwrap();
                         //     self.ready_checkers.insert(operand_out, recvb);
                         // }
-                        info!("::vm::store ready-checker for tensor #{}", operand_out);
+                        info!(
+                            "::vm::store ready-checker for tensor #{} -- DATADEP",
+                            operand_out
+                        );
 
                         Ok(0)
                     }
@@ -308,17 +311,6 @@ impl VM {
                 let rhs_dataview = self.get_tensor(&operand_rhs);
                 let opcode = _inst;
                 match exec_mode {
-                    0u8 => {
-                        // consuming-inputs-style + blocking-style
-                        let outs = self.session.launch_blocking_binary_compute(
-                            opcode,
-                            lhs_dataview,
-                            rhs_dataview,
-                        );
-                        self.tensor_pool
-                            .insert(operand_out, Arc::new(RwLock::new(outs)));
-                        Ok(0)
-                    }
                     1u8 => {
                         // non-consuming-inputs-style + blocking-style
                         info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
@@ -334,27 +326,24 @@ impl VM {
                     }
                     2u8 => {
                         // non-consuming-inputs-style + non-blocking-style
-                        info!("::vm::poll ready-checker for tensor #{}", operand_lhs);
                         // TODO extract this logic to simplify
-                        let lhs_ready_checker = self
-                            .ready_checkers
-                            .get_vec_mut(&operand_lhs)
-                            .expect(
-                                &format!("failed to fetch ready-checker {}", operand_lhs)
-                                    .to_string(),
-                            )
-                            .remove(0 as usize);
-                        let rhs_ready_checker = self
-                            .ready_checkers
-                            .get_vec_mut(&operand_rhs)
-                            .expect(
-                                &format!("failed to fetch ready-checker {}", operand_rhs)
-                                    .to_string(),
-                            )
-                            .remove(0 as usize);
+                        info!(
+                            "::vm::poll ready-checker for tensor #{} OP^{:?} -- DATADEP",
+                            operand_lhs, opcode
+                        );
+                        let lhs_ready_checker = self.get_ready_checker_at_pos(operand_lhs);
+
+                        info!(
+                            "::vm::poll ready-checker for tensor #{} OP^{:?} -- DATADEP",
+                            operand_rhs, opcode
+                        );
+                        let rhs_ready_checker = self.get_ready_checker_at_pos(operand_rhs);
 
                         info!("::create placeholder tensor for ret-value-tensor");
-                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        info!(
+                            "::vm::store-ret-value with index #{:?} OP^{:?}",
+                            operand_out, opcode
+                        );
                         // insert the output_placeholder
                         let shape = self.get_tensor_shape(operand_lhs).to_vec();
                         self.push_tensor_buffer(
@@ -382,7 +371,10 @@ impl VM {
                             self.ready_checkers
                                 .insert_many(operand_out, _ready_checkers);
                         }
-                        info!("::vm::store ready-checker for tensor #{}", operand_out);
+                        info!(
+                            "::vm::store ready-checker for tensor #{} -- DATADEP",
+                            operand_out
+                        );
 
                         Ok(0)
                     }
@@ -464,7 +456,113 @@ impl VM {
                 let operand_in = self.decode_u8() as usize;
                 let shape_size = self.decode_vec_len() as usize;
                 let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
+                let in_tensor = self.get_tensor(&operand_in);
+                let opcode = _inst;
+                // if operand_in != operand_out
+                match exec_mode {
+                    // should deprecate since it is not a safe mode that consumes
+                    // try to learn from functional, consumes inputs is also a side-effect
+                    1u8 => {
+                        if operand_in == operand_out {
+                            match *in_tensor.write().unwrap() {
+                                ActTensorTypes::F32Tensor { ref mut data } => {
+                                    let lhs_elements: usize = data.shape.iter().product();
+                                    let rhs_elements: usize = raw_shape_vec.iter().product();
+                                    assert_eq!(lhs_elements, rhs_elements);
+                                    data.shape = raw_shape_vec;
+                                }
+                                _ => panic!("not support int types"),
+                            }
+                            return Ok(0);
+                        } else {
+                            match *in_tensor.read().unwrap() {
+                                ActTensorTypes::F32Tensor { ref data } => {
+                                    let lhs_elements: usize = data.shape.iter().product();
+                                    let rhs_elements: usize = raw_shape_vec.iter().product();
+                                    assert_eq!(lhs_elements, rhs_elements);
+                                    self.push_tensor_buffer(
+                                        operand_out,
+                                        data.data.clone(),
+                                        raw_shape_vec,
+                                    );
+                                }
+                                _ => panic!("not support int types"),
+                            }
+                            return Ok(0);
+                        }
+                    }
+                    2u8 => {
+                        // non-consuming-inputs-style + non-blocking-style
+                        info!(
+                            "::vm::poll ready-checker for tensor #{} OP^{:?} -- DATADEP",
+                            operand_in, opcode
+                        );
+                        let ready_checker = self.get_ready_checker_at_pos(operand_in);
+
+                        // create a future-ready tensor
+                        // TODO change data part into Option with a None init
+                        // let output_placeholder = self.create_placeholder(&operand_in);
+                        info!("::create placeholder tensor for ret-value-tensor");
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        let recv_boxes = if operand_in == operand_out {
+                            let recv_boxes = self.session.launch_dma_operation_inplace(
+                                opcode,
+                                in_tensor,
+                                raw_shape_vec,
+                                ready_checker,
+                                operand_out,
+                            );
+                            recv_boxes
+                        } else {
+                            // define placeholder_at_pos
+                            self.push_tensor_buffer(
+                                operand_out,
+                                vec![0f32; raw_shape_vec.iter().product()],
+                                vec![],
+                            );
+                            let out_placeholder = self.get_tensor(&operand_out);
+
+                            let recv_boxes = self.session.launch_dma_operation(
+                                opcode,
+                                in_tensor,
+                                out_placeholder,
+                                raw_shape_vec,
+                                ready_checker,
+                                operand_out,
+                            );
+                            recv_boxes
+                        };
+                        // solution to redefinition, replace ready-checker with new
+                        // set_ready_checker_at_pos
+                        if self.ready_checkers.contains_key(&operand_out) {
+                            // legacy path
+                            // panic!("variable {}, redefined error", operand_out);
+
+                            // new path
+                            self.ready_checkers.remove(&operand_out);
+                            self.ready_checkers.insert_many(operand_out, recv_boxes);
+                        } else {
+                            self.ready_checkers.insert_many(operand_out, recv_boxes);
+                        }
+                        info!(
+                            "::vm::store ready-checker for tensor #{} OP^{:?} -- DATADEP",
+                            operand_out, opcode
+                        );
+
+                        Ok(0)
+                    }
+                    _ => panic!("unknown exec-mode"),
+                }
+            }
+            // MOCK tranpose is mocked with reshape
+            #[cfg(feature = "mock")]
+            CRTOpCode::TRANSPOSE => {
+                let operand_out = self.decode_u8() as usize;
+                let operand_in = self.decode_u8() as usize;
+                let shape_size = self.decode_vec_len() as usize;
+                let raw_shape_vec = self.decode_n_bytes_as_usize_vec(shape_size);
                 let in_dataview = self.get_tensor(&operand_in);
+                let opcode = _inst;
                 // if operand_in != operand_out
                 match exec_mode {
                     // should deprecate since it is not a safe mode that consumes
@@ -500,13 +598,19 @@ impl VM {
                     }
                     2u8 => {
                         // non-consuming-inputs-style + non-blocking-style
-                        info!("::vm::poll ready-checker for tensor #{}", operand_in);
+                        info!(
+                            "::vm::poll ready-checker for tensor #{} in OP^{:?} -- DATADEP",
+                            operand_in, opcode
+                        );
                         let ready_checker = self
                             .ready_checkers
                             .get_vec_mut(&operand_in)
                             .expect(
-                                &format!("failed to fetch ready-checker {}", operand_in)
-                                    .to_string(),
+                                &format!(
+                                    "failed to fetch ready-checker {} OP^{:?} -- DATADEP",
+                                    operand_in, opcode
+                                )
+                                .to_string(),
                             )
                             .remove(0 as usize);
 
@@ -542,9 +646,6 @@ impl VM {
                         }
                         // solution to redefinition, replace ready-checker with new
                         let (notifiers, recv_boxes) = self.build_notifiers_and_ready_checkers(4);
-                        for _notifier in notifiers.into_iter() {
-                            _notifier.send(0u8);
-                        }
                         if self.ready_checkers.contains_key(&operand_out) {
                             // legacy path
                             // panic!("variable {}, redefined error", operand_out);
@@ -555,7 +656,15 @@ impl VM {
                         } else {
                             self.ready_checkers.insert_many(operand_out, recv_boxes);
                         }
-                        info!("::vm::store ready-checker for tensor #{}", operand_out);
+                        info!("::vm::store ready-checker placeholder for tensor #{} OP^{:?} -- DATADEP", operand_out, opcode);
+
+                        for _notifier in notifiers.into_iter() {
+                            _notifier.send(0u8);
+                        }
+                        info!(
+                            "::vm::set tensor #{} OP^{:?} ready -- DATADEP",
+                            operand_out, opcode
+                        );
 
                         Ok(0)
                     }
@@ -636,10 +745,12 @@ impl VM {
     }
 
     pub fn dump_tensor_f32(&self, index: usize) {
-        info!("try dump tensor at #{:?}", index);
+        if self.tensor_pool.contains_key(&index) == false {
+            panic!("not-found tensor at slot #{:?}", index);
+        }
         match *self.tensor_pool[&index].read().unwrap() {
             ActTensorTypes::F32Tensor { ref data } => {
-                data.clone().dump();
+                data.clone().dump(index);
             }
             _ => panic!("not support int types for #{:?}", index),
         }
@@ -737,6 +848,8 @@ impl VM {
                     info!("continue ");
                 }
                 Err(RuntimeStatusError::EXEC_FINISH) => return Ok(0),
+                // add panic handle for illegal instruction
+                Err(RuntimeStatusError::RT_ERROR) => panic!("Runtime Error Detected"),
                 Err(_) => return status,
             }
         }
@@ -753,6 +866,8 @@ impl VM {
                     info!("continue ");
                 }
                 Err(RuntimeStatusError::EXEC_FINISH) => return Ok(0),
+                // add panic handle for illegal instruction
+                Err(RuntimeStatusError::RT_ERROR) => panic!("Runtime Error Detected"),
                 Err(_) => return status,
             }
         }

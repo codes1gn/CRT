@@ -142,6 +142,87 @@ impl HostSession {
         (senders, receivers)
     }
 
+    pub fn launch_dma_operation_inplace(
+        &mut self,
+        opcode: CRTOpCode,
+        in_tensor: Arc<RwLock<ActTensorTypes>>,
+        raw_shape_vec: Vec<usize>,
+        signal_box: oneshot::Receiver<u8>,
+        operand_out: usize,
+    ) -> Vec<oneshot::Receiver<u8>> {
+        // check readiness
+        self.async_runtime.block_on(async {
+            signal_box.await;
+        });
+
+        // set target shape
+        match *in_tensor.write().unwrap() {
+            ActTensorTypes::F32Tensor { ref mut data } => {
+                let lhs_elements: usize = data.shape.iter().product();
+                let rhs_elements: usize = raw_shape_vec.iter().product();
+                assert_eq!(lhs_elements, rhs_elements);
+                data.shape = raw_shape_vec;
+            }
+            _ => panic!("not support int types"),
+        }
+
+        // set notifier ready then put to context
+        let (notifiers, recv_boxes) = self.build_notifiers_and_ready_checkers(4);
+        for _notifier in notifiers.into_iter() {
+            _notifier.send(0u8);
+        }
+        info!(
+            "::vm::set tensor #{} OP^{:?} ready -- DATADEP",
+            operand_out, opcode
+        );
+        recv_boxes
+    }
+
+    pub fn launch_dma_operation(
+        &mut self,
+        opcode: CRTOpCode,
+        in_tensor: Arc<RwLock<ActTensorTypes>>,
+        out_tensor: Arc<RwLock<ActTensorTypes>>,
+        raw_shape_vec: Vec<usize>,
+        signal_box: oneshot::Receiver<u8>,
+        operand_out: usize,
+    ) -> Vec<oneshot::Receiver<u8>> {
+        // check readiness
+        self.async_runtime.block_on(async {
+            signal_box.await;
+        });
+        // assume only one consumer after
+        // check if target shape is accepted
+        let from_data = match *in_tensor.read().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => {
+                let lhs_elements: usize = data.shape.iter().product();
+                let rhs_elements: usize = raw_shape_vec.iter().product();
+                assert_eq!(lhs_elements, rhs_elements);
+                data.data.clone()
+            }
+            _ => panic!("not support int types"),
+        };
+        // clone data to target ssaid
+        // set target shape
+        match *out_tensor.write().unwrap() {
+            ActTensorTypes::F32Tensor { ref mut data } => {
+                data.data = from_data;
+                data.shape = raw_shape_vec;
+            }
+            _ => panic!("not support int types"),
+        }
+
+        let (notifiers, recv_boxes) = self.build_notifiers_and_ready_checkers(4);
+        for _notifier in notifiers.into_iter() {
+            _notifier.send(0u8);
+        }
+        info!(
+            "::vm::set tensor #{} OP^{:?} ready -- DATADEP",
+            operand_out, opcode
+        );
+        recv_boxes
+    }
+
     // TODO exec_mode =
     // 0u8, eager + blocking + owned
     // 1u8, eager + blocking + borrowed
