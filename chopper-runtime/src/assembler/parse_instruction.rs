@@ -16,7 +16,7 @@ use crate::assembler::parse_type::*;
 named!(pub parse_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         _inst: alt!(
-            parse_halt | parse_return | parse_binary_assignment | parse_unary_assignment | parse_unary_assignment_with_shape_argument
+            parse_halt | parse_return | parse_binary_assignment | parse_unary_assignment | parse_unary_assignment_with_shape_argument | parse_comment
         ) >>
         opt!(multispace) >>
         (
@@ -36,6 +36,26 @@ named!(parse_halt<CompleteStr, AsmInstruction>,
         (
             AsmInstruction {
                 opcode: Token::BytecodeOpCode { code: CRTOpCode::from(_opcode) },
+                operand1: None,
+                operand2: None,
+                operand3: None,
+            }
+        )
+    )
+);
+
+// "// some strings for comment\n"
+// TODO impl multiline comment parsing
+// take /*, then take_until */
+named!(parse_comment<CompleteStr, AsmInstruction>,
+    do_parse!(
+        tag!("//") >>
+        alt!(
+            take_until!("\n") | take_until!("\r\n")
+        ) >>
+        (
+            AsmInstruction {
+                opcode: Token::BytecodeOpCode { code: CRTOpCode::from(CompleteStr("crt.noop")) },
                 operand1: None,
                 operand2: None,
                 operand3: None,
@@ -410,5 +430,13 @@ mod tests {
         let result = parse_instruction(CompleteStr("%0 = crt.transpose! %1, [2 3]\n"));
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap().0.is_empty(), true);
+    }
+
+    #[test]
+    fn test_parse_comment_inst() {
+        let result = parse_instruction(CompleteStr("//rttransp% ose[123\n"));
+        // assert_eq!(result.is_ok(), true);
+        let (_remain, _parsed) = result.unwrap();
+        assert_eq!(_remain.is_empty(), true);
     }
 }

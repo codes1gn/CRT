@@ -267,6 +267,7 @@ impl VM {
     fn step_impl(&mut self, exec_mode: ExecMode) -> Result<u8, RuntimeStatusError> {
         let _inst = self.fetch_instruction().unwrap();
         match _inst {
+            CRTOpCode::NOOP => Ok(0),
             CRTOpCode::HALT => {
                 info!("::vm::halt-vm");
                 Ok(1)
