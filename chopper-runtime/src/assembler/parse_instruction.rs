@@ -332,64 +332,36 @@ mod tests {
 
     #[test]
     fn test_instruction_tensor_literal_with_zeros_helper() {
-        // w. \n
         let result = parse_instruction(CompleteStr(
             "%0 = crt.helper.svalue.tensor! zeros<[2 3]>: f32\n",
         ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
-        // assert_eq!(
-        //     _bytes_result,
-        //     vec![
-        //         12, 0, 32, 0, 6, 0, 0, 0, 0, 0, 0, 0, 205, 204, 140, 63, 205, 204, 12, 64, 51, 51,
-        //         83, 64, 205, 204, 140, 64, 0, 0, 176, 64, 51, 51, 211, 64, 24, 0, 2, 0, 0, 0, 0, 0,
-        //         0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0
-        //     ]
-        // )
     }
 
     #[test]
     fn test_instruction_tensor_literal_with_ones_helper() {
-        // w. \n
         let result = parse_instruction(CompleteStr(
             "%0 = crt.helper.svalue.tensor! ones<[2 3]>: f32\n",
         ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
-        // assert_eq!(
-        //     _bytes_result,
-        //     vec![
-        //         12, 0, 32, 0, 6, 0, 0, 0, 0, 0, 0, 0, 205, 204, 140, 63, 205, 204, 12, 64, 51, 51,
-        //         83, 64, 205, 204, 140, 64, 0, 0, 176, 64, 51, 51, 211, 64, 24, 0, 2, 0, 0, 0, 0, 0,
-        //         0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0
-        //     ]
-        // )
     }
 
     #[test]
     fn test_instruction_tensor_literal_with_uniform_helper() {
-        // w. \n
         let result = parse_instruction(CompleteStr(
             "%0 = crt.helper.rng.tensor! uniform<[2 3]>: f32\n",
         ));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
-        // assert_eq!(
-        //     _bytes_result,
-        //     vec![
-        //         12, 0, 32, 0, 6, 0, 0, 0, 0, 0, 0, 0, 205, 204, 140, 63, 205, 204, 12, 64, 51, 51,
-        //         83, 64, 205, 204, 140, 64, 0, 0, 176, 64, 51, 51, 211, 64, 24, 0, 2, 0, 0, 0, 0, 0,
-        //         0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0
-        //     ]
-        // )
     }
 
     #[test]
     fn test_instruction_tensor_literal_with_normal_helper() {
-        // w. \n
         let result = parse_instruction(CompleteStr(
             "%0 = crt.helper.rng.tensor! normal<[2 3]>: f32\n",
         ));
@@ -435,7 +407,6 @@ mod tests {
     #[test]
     fn test_parse_comment_inst() {
         let result = parse_instruction(CompleteStr("//rttransp% ose[123\n"));
-        // assert_eq!(result.is_ok(), true);
         let (_remain, _parsed) = result.unwrap();
         assert_eq!(_remain.is_empty(), true);
     }

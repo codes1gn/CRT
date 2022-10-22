@@ -367,7 +367,11 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub(crate) fn dev_at_mod_idx(&self, pos: usize) -> Option<u8> {
+        self.mods[pos].dev()
+    }
+
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut mod_bytes = vec![];
         for _mod in &self.mods {
             mod_bytes.append(&mut _mod.to_bytes());
@@ -378,12 +382,17 @@ impl Program {
 
 #[derive(Debug, PartialEq)]
 pub struct Module {
+    pub(crate) dev_at: Option<u8>,
     pub(crate) instructions: Vec<AsmInstruction>,
 }
 
 // TODO move prase_program to submod, defines the Trait interface in mod.rs and pub it to the
 // outside
 impl Module {
+    pub fn dev(&self) -> Option<u8> {
+        self.dev_at
+    }
+
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut inst_bytes = vec![];
         for inst in &self.instructions {
