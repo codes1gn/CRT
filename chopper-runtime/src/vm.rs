@@ -291,7 +291,6 @@ impl VM {
                     .blocking_recv()
                     .expect("return value computing not ready");
                 info!("::vm::ret-value compute done");
-                // clear data_buffer before return
                 // TODO maybe we need a strategy to decide what results retains and drop
                 // considering function calls in module
                 self.tensor_pool.retain(|&k, _| k == operand_ret);
@@ -302,16 +301,10 @@ impl VM {
             CRTOpCode::LOAD => {
                 let register_id = self.decode_u8() as usize;
                 let operand = self.decode_u16() as u16;
-                // note the registers is defaultly i32s
                 self.registers[register_id] = operand as i32;
-                // TODO change return of error code as error enum
-                // TODO change into verbose string
                 Ok(0)
             }
             CRTOpCode::CONSTI32 => {
-                // TODO do some action, add data_buffer
-                // create lhs dataview
-                // TODO enable it
                 let operand_out = self.decode_u8() as usize;
                 let operand_in = self.decode_4_bytes();
                 let operand_in_i32 = i32::from_le_bytes(operand_in);

@@ -15,10 +15,21 @@ pub mod parse_type;
 use assembler_base::*;
 use parse_module::*;
 
+// interface for bytecode parsing
 named!(pub parse_bytecode<CompleteStr, Program>,
     do_parse!(
-        module: parse_program >> (
-            module
+        program: parse_program >> (
+            program
+        )
+    )
+);
+
+named!(pub parse_program<CompleteStr, Program>,
+    do_parse!(
+        modules: many1!(parse_module) >> (
+            Program {
+                mods: modules
+            }
         )
     )
 );
