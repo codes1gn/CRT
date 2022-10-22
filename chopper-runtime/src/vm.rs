@@ -588,7 +588,6 @@ impl VM {
                         }
                     },
                     ExecMode::LAZY => {
-                        // non-consuming-inputs-style + non-blocking-style
                         info!(
                             "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
                             operand_in, opcode
@@ -640,15 +639,15 @@ impl VM {
                 let operand_in = self.decode_u8() as usize;
                 let shape_size = self.decode_vec_len() as usize;
                 let raw_shape_vec = self.decode_usize_vec(shape_size);
-                let in_dataview = self.get_tensor(&operand_in);
+                let in_tensor = self.get_tensor(&operand_in);
                 let opcode = _inst;
                 // if operand_in != operand_out
                 match exec_mode {
                     // should deprecate since it is not a safe mode that consumes
                     // try to learn from functional, consumes inputs is also a side-effect
-                    ExecMode::EAGER => {
-                        if operand_in == operand_out {
-                            match *in_dataview.write().unwrap() {
+                    ExecMode::EAGER => match (operand_in == operand_out) {
+                        true => {
+                            match *in_tensor.write().unwrap() {
                                 ActTensorTypes::F32Tensor { ref mut data } => {
                                     let lhs_elements: usize = data.shape.iter().product();
                                     let rhs_elements: usize = raw_shape_vec.iter().product();
@@ -658,8 +657,9 @@ impl VM {
                                 _ => panic!("not support int types"),
                             }
                             return Ok(0);
-                        } else {
-                            match *in_dataview.read().unwrap() {
+                        }
+                        false => {
+                            match *in_tensor.read().unwrap() {
                                 ActTensorTypes::F32Tensor { ref data } => {
                                     let lhs_elements: usize = data.shape.iter().product();
                                     let rhs_elements: usize = raw_shape_vec.iter().product();
@@ -674,77 +674,44 @@ impl VM {
                             }
                             return Ok(0);
                         }
-                    }
+                    },
                     ExecMode::LAZY => {
-                        // non-consuming-inputs-style + non-blocking-style
                         info!(
-                            "::vm::poll subscriber for tensor #{} in OP^{:?} -- DATADEP",
+                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
                             operand_in, opcode
                         );
-                        let _subscriber = self
-                            .subscribers
-                            .get_vec_mut(&operand_in)
-                            .expect(
-                                &format!(
-                                    "failed to fetch subscriber {} OP^{:?} -- DATADEP",
-                                    operand_in, opcode
-                                )
-                                .to_string(),
-                            )
-                            .remove(0 as usize);
+                        let _subscriber = self.get_subscriber_at_pos(operand_in);
 
-                        // create a future-ready tensor
-                        // TODO change data part into Option with a None init
-                        // let output_placeholder = self.create_placeholder(&operand_in);
-                        info!("::create placeholder tensor for ret-value-tensor");
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
-                        if operand_in == operand_out {
-                            match *in_dataview.write().unwrap() {
-                                ActTensorTypes::F32Tensor { ref mut data } => {
-                                    let lhs_elements: usize = data.shape.iter().product();
-                                    let rhs_elements: usize = raw_shape_vec.iter().product();
-                                    assert_eq!(lhs_elements, rhs_elements);
-                                    data.shape = raw_shape_vec;
-                                }
-                                _ => panic!("not support int types"),
-                            }
+                        let recv_boxes = if operand_in == operand_out {
+                            let recv_boxes = self.session.launch_dma_operation_inplace(
+                                opcode,
+                                in_tensor,
+                                raw_shape_vec,
+                                _subscriber,
+                                operand_out,
+                            );
+                            recv_boxes
                         } else {
-                            match *in_dataview.read().unwrap() {
-                                ActTensorTypes::F32Tensor { ref data } => {
-                                    let lhs_elements: usize = data.shape.iter().product();
-                                    let rhs_elements: usize = raw_shape_vec.iter().product();
-                                    assert_eq!(lhs_elements, rhs_elements);
-                                    self.push_shaped_tensor_at_pos(
-                                        operand_out,
-                                        data.data.clone(),
-                                        raw_shape_vec,
-                                    );
-                                }
-                                _ => panic!("not support int types"),
-                            }
-                        }
-                        // solution to redefinition, replace subscriber with new
-                        let (notifiers, recv_boxes) = self.build_notifiers_and_subscribers(4);
-                        if self.subscribers.contains_key(&operand_out) {
-                            // legacy path
-                            // panic!("variable {}, redefined error", operand_out);
+                            let out_placeholder = self.get_shaped_placeholder_at_pos_or(
+                                operand_out,
+                                raw_shape_vec.clone(),
+                            );
 
-                            // new path
-                            self.subscribers.remove(&operand_out);
-                            self.subscribers.insert_many(operand_out, recv_boxes);
-                        } else {
-                            self.subscribers.insert_many(operand_out, recv_boxes);
-                        }
-                        info!(
-                            "::vm::store subscriber placeholder for tensor #{} OP^{:?} -- DATADEP",
-                            operand_out, opcode
-                        );
+                            let recv_boxes = self.session.launch_dma_operation(
+                                opcode,
+                                in_tensor,
+                                out_placeholder,
+                                raw_shape_vec,
+                                _subscriber,
+                                operand_out,
+                            );
+                            recv_boxes
+                        };
 
-                        for _notifier in notifiers.into_iter() {
-                            _notifier.send(0u8);
-                        }
+                        self.set_subscriber_at_pos(operand_out, recv_boxes);
                         info!(
-                            "::vm::set tensor #{} OP^{:?} ready -- DATADEP",
+                            "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
                             operand_out, opcode
                         );
 
