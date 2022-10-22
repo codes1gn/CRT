@@ -101,7 +101,7 @@ impl Interpreter {
         assert_eq!(_remain.is_empty(), true);
         let bytecode = result_program.to_bytes();
         for byte in bytecode {
-            self.vm.push_bytecode_into_cmdbuffer(byte);
+            self.vm.push_instruction(byte);
         }
         let status = self.vm.run_eagerly();
         status
@@ -115,7 +115,7 @@ impl Interpreter {
         assert_eq!(_remain.is_empty(), true);
         let bytecode = result_program.to_bytes();
         for byte in bytecode {
-            self.vm.push_bytecode_into_cmdbuffer(byte);
+            self.vm.push_instruction(byte);
         }
         let status = self.vm.run_lazily();
         status

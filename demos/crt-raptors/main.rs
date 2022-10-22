@@ -125,8 +125,8 @@ fn test_bytecode_run() {
 
     let data0 = vec![1.1, 2.2, 3.3];
     let data1 = vec![1.1, 2.2, 3.3];
-    ipt.vm.push_tensor_buffer(0, data0, vec![1, 3]);
-    ipt.vm.push_tensor_buffer(1, data1, vec![1, 3]);
+    ipt.vm.push_shaped_tensor_at_pos(0, data0, vec![1, 3]);
+    ipt.vm.push_shaped_tensor_at_pos(1, data1, vec![1, 3]);
 
     ipt.run_bytecode_eagerly("%4 = crt.add.f32! %1, %0 : f32\n");
     assert_float_eq!(

@@ -68,6 +68,10 @@ impl VM {
         &self.inst_buffer
     }
 
+    pub fn push_instruction(&mut self, byte: u8) {
+        self.inst_buffer.push(byte);
+    }
+
     // getter
     pub fn registers(&self) -> &[i32] {
         &self.registers
@@ -163,8 +167,17 @@ impl VM {
             .remove(0 as usize)
     }
 
-    pub fn push_bytecode_into_cmdbuffer(&mut self, byte: u8) {
-        self.inst_buffer.push(byte);
+    // If contains subscriber already, replace it
+    fn set_subscriber_at_pos(&mut self, pos: usize, subscribers: Vec<oneshot::Receiver<u8>>) {
+        match self.subscribers.contains_key(&pos) {
+            true => {
+                self.subscribers.remove(&pos);
+                self.subscribers.insert_many(pos, subscribers);
+            }
+            false => {
+                self.subscribers.insert_many(pos, subscribers);
+            }
+        }
     }
 
     pub fn get_raw_vec_i32(&self, index: usize) -> Vec<i32> {
@@ -172,6 +185,15 @@ impl VM {
         // https://stackoverflow.com/questions/32682876/is-there-any-way-to-return-a-reference-to-a-variable-created-in-a-function
         match *self.tensor_pool[&index].read().unwrap() {
             ActTensorTypes::I32Tensor { ref data } => data.data.clone(),
+            _ => panic!("not support int types"),
+        }
+    }
+
+    // TODO renaming
+    pub fn get_raw_vec_f32(&self, index: usize) -> Vec<f32> {
+        // TODO add guard for array-access-by-index
+        match *self.tensor_pool[&index].read().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => data.data.clone(),
             _ => panic!("not support int types"),
         }
     }
@@ -188,15 +210,6 @@ impl VM {
 
     pub fn get_tensor(&mut self, index: &usize) -> Arc<RwLock<ActTensorTypes>> {
         Arc::clone(&self.tensor_pool[index])
-    }
-
-    // TODO renaming
-    pub fn get_raw_vec_f32(&self, index: usize) -> Vec<f32> {
-        // TODO add guard for array-access-by-index
-        match *self.tensor_pool[&index].read().unwrap() {
-            ActTensorTypes::F32Tensor { ref data } => data.data.clone(),
-            _ => panic!("not support int types"),
-        }
     }
 
     pub fn dump_tensor_f32(&self, index: usize) {
@@ -229,41 +242,26 @@ impl VM {
         }
     }
 
-    pub fn push_tensor_pool(&mut self, index: usize, data: Vec<f32>) {
-        let data_shape = vec![data.len()];
-        let tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
-            data: TensorView::<f32>::new(data, ElementType::F32, data_shape),
-        }));
-        // TODO-trial lowering UniBuffer range, to make session dev independent
-        // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
-        //     &self.session.device_context.device,
-        //     &self
-        //         .session
-        //         .device_context
-        //         .device_instance
-        //         .memory_property()
-        //         .memory_types,
-        //     tensor_view,
-        // );
-        self.tensor_pool.insert(index, tensor_view);
-    }
-
-    pub fn push_tensor_buffer(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
+    pub fn push_shaped_tensor_at_pos(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
         let tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, shape),
         }));
-        // TODO-trial lowering UniBuffer range, to make session dev independent
-        // let mut data_buffer = UniBuffer::<concrete_backend::Backend, f32>::new(
-        //     &self.session.device_context.device,
-        //     &self
-        //         .session
-        //         .device_context
-        //         .device_instance
-        //         .memory_property()
-        //         .memory_types,
-        //     tensor_view,
-        // );
         self.tensor_pool.insert(index, tensor_view);
+    }
+
+    fn define_shaped_placeholder_at_pos(&mut self, pos: usize, shape: Vec<usize>) {
+        self.push_shaped_tensor_at_pos(pos, vec![0f32; shape.iter().product()], vec![]);
+    }
+
+    fn get_shaped_placeholder_at_pos_or(
+        &mut self,
+        pos: usize,
+        shape: Vec<usize>,
+    ) -> Arc<RwLock<ActTensorTypes>> {
+        if self.tensor_pool.contains_key(&pos) == false {
+            self.define_shaped_placeholder_at_pos(pos, shape);
+        }
+        self.get_tensor(&pos)
     }
 
     fn step_impl(&mut self, exec_mode: ExecMode) -> Result<u8, RuntimeStatusError> {
@@ -350,7 +348,7 @@ impl VM {
                         info!("::create placeholder tensor for ret-value-tensor");
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
                         let shape = self.get_tensor_shape(operand_in).to_vec();
-                        self.push_tensor_buffer(
+                        self.push_shaped_tensor_at_pos(
                             operand_out,
                             vec![0f32; shape.iter().product()],
                             shape,
@@ -445,7 +443,7 @@ impl VM {
                         );
                         // insert the output_placeholder
                         let shape = self.get_tensor_shape(operand_lhs).to_vec();
-                        self.push_tensor_buffer(
+                        self.push_shaped_tensor_at_pos(
                             operand_out,
                             vec![0f32; shape.iter().product()],
                             shape,
@@ -494,7 +492,7 @@ impl VM {
                 let operand_out = self.decode_u8() as usize;
                 let operand_in = self.decode_4_bytes();
                 let operand_in_f32 = f32::from_le_bytes(operand_in);
-                self.push_tensor_pool(operand_out, vec![operand_in_f32]);
+                self.push_shaped_tensor_at_pos(operand_out, vec![operand_in_f32], vec![1]);
                 Ok(0)
             }
             CRTOpCode::CONSTTENSOR => {
@@ -503,7 +501,7 @@ impl VM {
                 let raw_data_vec = self.decode_f32_vec(data_size);
                 let shape_size = self.decode_vec_len() as usize;
                 let raw_shape_vec = self.decode_usize_vec(shape_size);
-                self.push_tensor_buffer(operand_out, raw_data_vec, raw_shape_vec);
+                self.push_shaped_tensor_at_pos(operand_out, raw_data_vec, raw_shape_vec);
                 Ok(0)
             }
             CRTOpCode::SVALUETENSOR => {
@@ -517,7 +515,7 @@ impl VM {
                     "::vm::generate+store tensor-value with index #{:?}",
                     operand_out
                 );
-                self.push_tensor_buffer(
+                self.push_shaped_tensor_at_pos(
                     operand_out,
                     vec![data_generator_f32; raw_shape_vec.iter().product()],
                     raw_shape_vec,
@@ -541,7 +539,7 @@ impl VM {
                     1 => BlasTensor::normal(raw_shape_vec.clone(), 0f32, 1f32),
                     _ => panic!("unknown rng category????"),
                 };
-                self.push_tensor_buffer(
+                self.push_shaped_tensor_at_pos(
                     operand_out,
                     TensorView::<f32>::from(_tensor).data,
                     raw_shape_vec,
@@ -559,8 +557,8 @@ impl VM {
                 match exec_mode {
                     // should deprecate since it is not a safe mode that consumes
                     // try to learn from functional, consumes inputs is also a side-effect
-                    ExecMode::EAGER => {
-                        if operand_in == operand_out {
+                    ExecMode::EAGER => match (operand_in == operand_out) {
+                        true => {
                             match *in_tensor.write().unwrap() {
                                 ActTensorTypes::F32Tensor { ref mut data } => {
                                     let lhs_elements: usize = data.shape.iter().product();
@@ -571,13 +569,14 @@ impl VM {
                                 _ => panic!("not support int types"),
                             }
                             return Ok(0);
-                        } else {
+                        }
+                        false => {
                             match *in_tensor.read().unwrap() {
                                 ActTensorTypes::F32Tensor { ref data } => {
                                     let lhs_elements: usize = data.shape.iter().product();
                                     let rhs_elements: usize = raw_shape_vec.iter().product();
                                     assert_eq!(lhs_elements, rhs_elements);
-                                    self.push_tensor_buffer(
+                                    self.push_shaped_tensor_at_pos(
                                         operand_out,
                                         data.data.clone(),
                                         raw_shape_vec,
@@ -587,7 +586,7 @@ impl VM {
                             }
                             return Ok(0);
                         }
-                    }
+                    },
                     ExecMode::LAZY => {
                         // non-consuming-inputs-style + non-blocking-style
                         info!(
@@ -596,10 +595,6 @@ impl VM {
                         );
                         let _subscriber = self.get_subscriber_at_pos(operand_in);
 
-                        // create a future-ready tensor
-                        // TODO change data part into Option with a None init
-                        // let output_placeholder = self.create_placeholder(&operand_in);
-                        info!("::create placeholder tensor for ret-value-tensor");
                         info!("::vm::store-ret-value with index #{:?}", operand_out);
                         let recv_boxes = if operand_in == operand_out {
                             let recv_boxes = self.session.launch_dma_operation_inplace(
@@ -611,13 +606,10 @@ impl VM {
                             );
                             recv_boxes
                         } else {
-                            // define placeholder_at_pos
-                            self.push_tensor_buffer(
+                            let out_placeholder = self.get_shaped_placeholder_at_pos_or(
                                 operand_out,
-                                vec![0f32; raw_shape_vec.iter().product()],
-                                vec![],
+                                raw_shape_vec.clone(),
                             );
-                            let out_placeholder = self.get_tensor(&operand_out);
 
                             let recv_boxes = self.session.launch_dma_operation(
                                 opcode,
@@ -629,18 +621,8 @@ impl VM {
                             );
                             recv_boxes
                         };
-                        // solution to redefinition, replace subscriber with new
-                        // set_subscriber_at_pos
-                        if self.subscribers.contains_key(&operand_out) {
-                            // legacy path
-                            // panic!("variable {}, redefined error", operand_out);
 
-                            // new path
-                            self.subscribers.remove(&operand_out);
-                            self.subscribers.insert_many(operand_out, recv_boxes);
-                        } else {
-                            self.subscribers.insert_many(operand_out, recv_boxes);
-                        }
+                        self.set_subscriber_at_pos(operand_out, recv_boxes);
                         info!(
                             "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
                             operand_out, opcode
@@ -682,7 +664,7 @@ impl VM {
                                     let lhs_elements: usize = data.shape.iter().product();
                                     let rhs_elements: usize = raw_shape_vec.iter().product();
                                     assert_eq!(lhs_elements, rhs_elements);
-                                    self.push_tensor_buffer(
+                                    self.push_shaped_tensor_at_pos(
                                         operand_out,
                                         data.data.clone(),
                                         raw_shape_vec,
@@ -732,7 +714,7 @@ impl VM {
                                     let lhs_elements: usize = data.shape.iter().product();
                                     let rhs_elements: usize = raw_shape_vec.iter().product();
                                     assert_eq!(lhs_elements, rhs_elements);
-                                    self.push_tensor_buffer(
+                                    self.push_shaped_tensor_at_pos(
                                         operand_out,
                                         data.data.clone(),
                                         raw_shape_vec,
@@ -777,8 +759,7 @@ impl VM {
         }
     }
 
-    // entry functions for execute, that is public
-    pub fn eager_step(&mut self) -> Result<u8, RuntimeStatusError> {
+    fn eager_step(&mut self) -> Result<u8, RuntimeStatusError> {
         info!("::vm::eager-step");
         if self.program_counter >= self.inst_buffer.len() {
             info!("::vm::cmd-buffer empty >> halt");
@@ -787,8 +768,7 @@ impl VM {
         self.step_impl(ExecMode::EAGER)
     }
 
-    // entry functions for execute, that is public
-    pub fn lazy_step(&mut self) -> Result<u8, RuntimeStatusError> {
+    fn lazy_step(&mut self) -> Result<u8, RuntimeStatusError> {
         info!("::vm::lazy-step");
         if self.program_counter >= self.inst_buffer.len() {
             info!("::vm::cmd-buffer empty >> halt");
@@ -797,7 +777,6 @@ impl VM {
         self.step_impl(ExecMode::LAZY)
     }
 
-    // TODO modify the return into statuscode
     pub fn run_eagerly(&mut self) -> Result<u8, RuntimeStatusError> {
         info!("::vm::run-eagerly");
         loop {
@@ -815,7 +794,6 @@ impl VM {
         info!("::vm::task-dispatch finished, sleep to wait all done");
     }
 
-    // TODO modify the return into statuscode
     pub fn run_lazily(&mut self) -> Result<u8, RuntimeStatusError> {
         info!("::vm::run-lazily");
         loop {
