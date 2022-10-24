@@ -395,6 +395,17 @@ impl Module {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut inst_bytes = vec![];
+        // TODO add dev_at inst
+        inst_bytes.push(CRTOpCode::DEVAT as u8);
+        match self.dev_at {
+            Some(idx) => {
+                inst_bytes.push(idx);
+            }
+            None => {
+                // dev id should be 0-N, -1 means none-dev
+                inst_bytes.push(u8::MAX as u8);
+            }
+        }
         for inst in &self.instructions {
             inst_bytes.append(&mut inst.to_bytes());
         }

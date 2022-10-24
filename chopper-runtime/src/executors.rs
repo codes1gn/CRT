@@ -94,6 +94,36 @@ impl ExecutorLike for ActExecutorTypes {
         }
     }
 
+    fn dma_operation(
+        &mut self,
+        op: Self::OpCodeType,
+        in_tensor: Arc<RwLock<Self::TensorType>>,
+        out_tensor: Arc<RwLock<Self::TensorType>>,
+        shape: Vec<usize>,
+    ) -> () {
+        // debug!("============ on computing unary =============");
+        match self {
+            #[cfg(feature = "mock")]
+            ActExecutorTypes::MockExecutor(ref mut _executor) => {
+                _executor.dma_operation::<Self::TensorType>(
+                    op.into(),
+                    in_tensor,
+                    out_tensor,
+                    shape,
+                );
+            }
+            #[cfg(feature = "vulkan")]
+            ActExecutorTypes::VkGPUExecutor(ref mut _executor) => {
+                panic!("not implemented");
+            }
+            #[cfg(all(feature = "blas"))]
+            ActExecutorTypes::BlasExecutor(ref mut _executor) => {
+                panic!("not implemented");
+            }
+            _ => panic!("not registered backend typeid"),
+        }
+    }
+
     fn unary_compute_v2(
         &mut self,
         op: Self::OpCodeType,

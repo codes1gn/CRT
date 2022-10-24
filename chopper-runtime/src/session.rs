@@ -51,6 +51,7 @@ macro_rules! build_crt {
 impl HostSession {
     pub fn new() -> HostSession {
         let asrt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(8)
             .enable_all()
             .build()
             .unwrap();
@@ -185,40 +186,51 @@ impl HostSession {
         out_tensor: Arc<RwLock<ActTensorTypes>>,
         raw_shape_vec: Vec<usize>,
         signal_box: oneshot::Receiver<u8>,
-        operand_out: usize,
+        respond_id: usize,
+        dev_at: Option<u8>,
     ) -> Vec<oneshot::Receiver<u8>> {
-        // check readiness
-        self.async_runtime.block_on(async {
-            signal_box.await;
-        });
-        // assume only one consumer after
-        // check if target shape is accepted
-        let from_data = match *in_tensor.read().unwrap() {
-            ActTensorTypes::F32Tensor { ref data } => {
-                let lhs_elements: usize = data.shape.iter().product();
-                let rhs_elements: usize = raw_shape_vec.iter().product();
-                assert_eq!(lhs_elements, rhs_elements);
-                data.data.clone()
-            }
-            _ => panic!("not support int types"),
-        };
-        // clone data to target ssaid
-        // set target shape
-        match *out_tensor.write().unwrap() {
-            ActTensorTypes::F32Tensor { ref mut data } => {
-                data.data = from_data;
-                data.shape = raw_shape_vec;
-            }
-            _ => panic!("not support int types"),
-        }
+        // Action done here, and mock a dma operation done in async fashion
+        // let from_data = match *in_tensor.read().unwrap() {
+        //     ActTensorTypes::F32Tensor { ref data } => {
+        //         let lhs_elements: usize = data.shape.iter().product();
+        //         let rhs_elements: usize = raw_shape_vec.iter().product();
+        //         assert_eq!(lhs_elements, rhs_elements);
+        //         data.data.clone()
+        //     }
+        //     _ => panic!("not support int types"),
+        // };
+        // match *out_tensor.write().unwrap() {
+        //     ActTensorTypes::F32Tensor { ref mut data } => {
+        //         data.data = from_data;
+        //         data.shape = raw_shape_vec.clone();
+        //     }
+        //     _ => panic!("not support int types"),
+        // }
 
+        // Mock the dma via Raptors system
         let (notifiers, recv_boxes) = self.build_notifiers_and_ready_checkers(4);
-        for _notifier in notifiers.into_iter() {
-            _notifier.send(0u8);
-        }
+        let opmsg = PayloadMessage::DMAOperationMsg {
+            op: opcode,
+            inp: in_tensor,
+            out: out_tensor,
+            inp_ready_checker: signal_box,
+            respond_to: notifiers,
+            respond_id: respond_id,
+            dev_at: dev_at,
+            shape: raw_shape_vec,
+        };
+        debug!(
+            "::launch_non_blocking_unary_compute::send msg to actor_system {:#?}",
+            opmsg
+        );
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::PayloadMSG(opmsg))
+                .await;
+        });
         info!(
             "::vm::set tensor #{} OP^{:?} ready -- DATADEP",
-            operand_out, opcode
+            respond_id, opcode
         );
         recv_boxes
     }
@@ -235,6 +247,7 @@ impl HostSession {
         out_tensor: Arc<RwLock<ActTensorTypes>>,
         signal_box: oneshot::Receiver<u8>,
         respond_id: usize,
+        dev_at: Option<u8>,
     ) -> Vec<oneshot::Receiver<u8>> {
         // assume only one consumer after
         let (notifiers, ready_checkers) = self.build_notifiers_and_ready_checkers(4);
@@ -245,6 +258,7 @@ impl HostSession {
             inp_ready_checker: signal_box,
             respond_to: notifiers,
             respond_id: respond_id,
+            dev_at: dev_at,
         };
         debug!(
             "::launch_non_blocking_unary_compute::send msg to actor_system {:#?}",
@@ -269,6 +283,7 @@ impl HostSession {
         lhs_signal_box: oneshot::Receiver<u8>,
         rhs_signal_box: oneshot::Receiver<u8>,
         respond_id: usize,
+        dev_at: Option<u8>,
     ) -> Vec<oneshot::Receiver<u8>> {
         // assume only one consumer after
         let (notifiers, ready_checkers) = self.build_notifiers_and_ready_checkers(4);
@@ -281,6 +296,7 @@ impl HostSession {
             rhs_ready_checker: rhs_signal_box,
             respond_to: notifiers,
             respond_id: respond_id,
+            dev_at: dev_at,
         };
         debug!(
             "::launch_non_blocking_binary_compute::send msg to actor_system {:#?}",

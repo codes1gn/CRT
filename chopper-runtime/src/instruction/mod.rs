@@ -37,6 +37,7 @@ pub enum CRTOpCode {
     RESHAPE,
     TRANSPOSE,
     NOOP,
+    DEVAT, // util instruction support phantom - allocated at dev idx
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -147,6 +148,9 @@ impl From<u8> for CRTOpCode {
             20 => {
                 return CRTOpCode::NOOP;
             }
+            21 => {
+                return CRTOpCode::DEVAT;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -225,6 +229,7 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("crt.mul.f32") => CRTOpCode::MULF32,
             CompleteStr("crt.matmul.f32") => CRTOpCode::MATMULF32,
             CompleteStr("crt.div.f32") => CRTOpCode::DIVF32,
+            // crt.devat, NOT USE IN BYTECODE but in to_bytes of modules
             _ => {
                 panic!("unknown inst");
             }
@@ -277,6 +282,7 @@ impl From<CRTOpCode> for MockOpCode {
         match item {
             CRTOpCode::EXPF32 => MockOpCode::ExpOp,
             CRTOpCode::RESHAPE => MockOpCode::ReshapeOp,
+            CRTOpCode::TRANSPOSE => MockOpCode::TransposeOp,
             CRTOpCode::ADDF32 => MockOpCode::AddOp,
             CRTOpCode::SUBF32 => MockOpCode::SubOp,
             CRTOpCode::MULF32 => MockOpCode::MulOp,
@@ -286,7 +292,10 @@ impl From<CRTOpCode> for MockOpCode {
             CRTOpCode::MULI32 => MockOpCode::MulOp,
             CRTOpCode::FLOORDIVI32 => MockOpCode::DivOp,
             CRTOpCode::MATMULF32 => MockOpCode::MatmulOp,
-            _ => panic!("conversion from ChopperOpCode to MockOpCode not registered"),
+            _ => panic!(
+                "conversion from ChopperOpCode {:?} to MockOpCode not registered",
+                item
+            ),
         }
     }
 }

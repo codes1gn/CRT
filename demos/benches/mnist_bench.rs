@@ -4,11 +4,12 @@ extern crate float_eq;
 use std::time::Instant;
 use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr};
 
+use criterion::*;
 use float_eq::{assert_float_eq, float_eq};
 
 use chopper_runtime::prelude::*;
 
-fn bert_block() {
+fn bert_block(crit: &mut Criterion) {
     // use shared reshape result
     let bytecode2 = "
         %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
@@ -46,22 +47,22 @@ fn bert_block() {
 
         return %103
     ";
+    // phantom.block <dev:#0> {
+    //     %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
+    // }
+    //
+    // %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
+    // %1 = crt.reshape! %0, [4096 1024]
+    //
+    // phantom.block <dev:#3> {
+    //     %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
+    //     %1 = crt.reshape! %0, [4096 1024]
+    // }
+    //
 
     // avoid shared use of reshape result
     let bytecode1 = "
         %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
-        // phantom.block <dev:#0> {
-        //     %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
-        // }
-        //
-        // %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
-        // %1 = crt.reshape! %0, [4096 1024]
-        //
-        // phantom.block <dev:#3> {
-        //     %0 = crt.helper.svalue.tensor! ones<[32 128 1024]> : f32
-        //     %1 = crt.reshape! %0, [4096 1024]
-        // }
-        //
 
         // Q branch
         phantom.block <dev:#0> {
@@ -101,19 +102,28 @@ fn bert_block() {
     let mut ipt = Interpreter::new();
     ipt.init(3);
 
-    // split reshape
-    ipt.run_bytecode_lazily(bytecode1);
+    let mut bench_group = crit.benchmark_group("bert_block");
+    bench_group.sample_size(10);
+    bench_group.bench_with_input(
+        BenchmarkId::new(format!("solution#1"), 0),
+        &0,
+        |bench, _zero| {
+            bench.iter(|| {
+                black_box(ipt.run_bytecode_lazily(bytecode1));
+            });
+        },
+    );
 
-    // split after reshape
-    // ipt.run_bytecode_lazily(bytecode2);
-
-    // ipt.vm.dump_tensor_f32(10);
-    // ipt.vm.dump_tensor_f32(11);
-    // ipt.vm.dump_tensor_f32(102);
+    bench_group.bench_with_input(
+        BenchmarkId::new(format!("solution#2"), 0),
+        &0,
+        |bench, _zero| {
+            bench.iter(|| {
+                black_box(ipt.run_bytecode_lazily(bytecode2));
+            });
+        },
+    );
 }
 
-fn main() {
-    std::env::set_var("RUST_LOG", "info");
-    tracing_subscriber::fmt::try_init().unwrap();
-    bert_block();
-}
+criterion_group!(mnist_bench, bert_block);
+criterion_main!(mnist_bench);
