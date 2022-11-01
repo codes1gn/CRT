@@ -292,6 +292,23 @@ impl AsmInstruction {
                         results.push(_shape)
                     }
                 }
+                // used for paper
+                #[cfg(feature = "phantom")]
+                Token::TensorType { dtype, shape } => {
+                    let dtype_code: u8 = dtype.into();
+                    results.push(dtype_code);
+
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
                 Token::UninitTensor {
                     data_generator,
                     shape,

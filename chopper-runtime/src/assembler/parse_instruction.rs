@@ -25,12 +25,12 @@ named!(pub parse_instruction<CompleteStr, AsmInstruction>,
     )
 );
 
-#[cfg(feature = "mock")]
-named!(pub parse_mock_instruction<CompleteStr, AsmInstruction>,
+#[cfg(feature = "phantom")]
+named!(pub parse_phantom_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         opt!(multispace) >>
         _inst: alt!(
-            parse_mock_zenary_instruction | parse_mock_binary_instruction | parse_mock_unary_instruction | parse_comment | parse_mock_return
+            parse_phantom_zenary_instruction | parse_phantom_binary_instruction | parse_phantom_unary_instruction | parse_comment | parse_phantom_return
         ) >>
         opt!(multispace) >>
         (
@@ -78,8 +78,8 @@ named!(parse_comment<CompleteStr, AsmInstruction>,
     )
 );
 
-#[cfg(feature = "mock")]
-named!(parse_mock_return<CompleteStr, AsmInstruction>,
+#[cfg(feature = "phantom")]
+named!(parse_phantom_return<CompleteStr, AsmInstruction>,
     do_parse!(
         _opcode: alt!(
             tag!("return")
@@ -155,14 +155,13 @@ named!(parse_return<CompleteStr, AsmInstruction>,
 // );
 //
 //
-// ANCHOR mock
-#[cfg(feature = "mock")]
+#[cfg(feature = "phantom")]
 named!(
-    parse_mock_binary_instruction<CompleteStr, AsmInstruction>,
+    parse_phantom_binary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         _result: parse_operand >>
         tag!("= ") >>
-        _opcode: parse_mock_opcode >>
+        _opcode: parse_phantom_opcode >>
         _operand_lhs: parse_operand >>
         tag!(", ") >>
         _operand_rhs: parse_operand >>
@@ -181,37 +180,51 @@ named!(
     )
 );
 
-#[cfg(feature = "mock")]
+#[cfg(feature = "phantom")]
 named!(
-    parse_mock_unary_instruction<CompleteStr, AsmInstruction>,
+    parse_phantom_unary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         out_operand: parse_operand >>
         tag!("=") >>
         _s1: space0 >>
-        opcode: parse_mock_opcode >>
+        opcode: parse_phantom_opcode >>
         in_operand: parse_operand >>
         tag!(": ") >>
         _dtype: parse_function_type >>
         (
-            AsmInstruction {
-                opcode: opcode,
-                operand1: Some(out_operand),
-                operand2: Some(in_operand),
-                operand3: None,
+            match opcode {
+                Token::BytecodeOpCode { code: CRTOpCode::MAXPOOL } => {
+                    // if unary that change shapes, save shape in last place
+                    AsmInstruction {
+                        opcode: opcode,
+                        operand1: Some(out_operand),
+                        operand2: Some(in_operand),
+                        operand3: Some(_dtype),
+                    }
 
+                },
+                _ => {
+                    // if same-operand-result-shape, not need to store shaped-type
+                    AsmInstruction {
+                        opcode: opcode,
+                        operand1: Some(out_operand),
+                        operand2: Some(in_operand),
+                        operand3: None,
+                    }
+                }
             }
         )
     )
 );
 
-#[cfg(feature = "mock")]
+#[cfg(feature = "phantom")]
 named!(
-    parse_mock_zenary_instruction<CompleteStr, AsmInstruction>,
+    parse_phantom_zenary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         out_operand: parse_operand >>
         tag!("=") >>
         _s1: space0 >>
-        opcode: parse_mock_opcode >>
+        opcode: parse_phantom_opcode >>
         space0 >>
         tag!(": ") >>
         _dtype: parse_function_type >>
@@ -256,7 +269,7 @@ named!(
         tag!(": ") >>
         // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
         // status nor this static type info
-        _dtype: alt!(parse_type | parse_function_type) >>
+        _dtype: parse_type >>
         (
             AsmInstruction {
                 opcode: _opcode,
@@ -393,10 +406,10 @@ mod tests {
         assert_eq!(_bytes_result, vec![5, 3, 2, 0])
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
-    fn test_parse_mock_exp() {
-        let result = parse_mock_unary_instruction(CompleteStr(
+    fn test_parse_phantom_exp() {
+        let result = parse_phantom_unary_instruction(CompleteStr(
             "%3 = crt.exp %2 : (tensor<1x128xf32>) -> tensor<1x128xf32>",
         ));
         assert_eq!(result.is_ok(), true);
@@ -405,16 +418,15 @@ mod tests {
         assert_eq!(_bytes_result.to_bytes(), vec![16, 3, 2])
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
-    fn test_parse_mock_maxpool() {
-        let result = parse_mock_unary_instruction(CompleteStr(
+    fn test_parse_phantom_maxpool() {
+        let result = parse_phantom_unary_instruction(CompleteStr(
             "%0 = crt.maxpool %100 : (tensor<1x1x28x28xf32>) -> tensor<1x1x14x14xf32>",
         ));
-        // assert_eq!(result.is_ok(), true);
+        assert_eq!(result.is_ok(), true);
         let (_remain, _bytes_result) = result.unwrap();
         println!("{:?}", _remain);
-        // assert_eq!(_bytes_result.to_bytes(), vec![16, 3, 2])
     }
 
     #[test]
@@ -481,20 +493,25 @@ mod tests {
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
         assert_eq!(_bytes_result, vec![13, 0, 7, 9]);
+    }
 
+    #[cfg(feature = "phantom")]
+    #[test]
+    fn test_instruction_assignment_matmul_phantom() {
         // %86 = crt.add %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>
-        let result = parse_mock_instruction(CompleteStr("%86 = crt.matmul %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>"));
+        let result = parse_phantom_instruction(CompleteStr("%86 = crt.matmul %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>"));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
         assert_eq!(_bytes_result, vec![13, 86, 82, 85]);
     }
 
+    #[cfg(feature = "phantom")]
     #[test]
-    fn test_instruction_constant() {
+    fn test_instruction_phantom_constant() {
         // %8 = crt.constant : () -> tensor<10xf32>
         let result =
-            parse_mock_instruction(CompleteStr("%8 = crt.constant : () -> tensor<10xf32>"));
+            parse_phantom_instruction(CompleteStr("%8 = crt.constant : () -> tensor<10xf32>"));
         let ref_result = parse_instruction(CompleteStr(
             "%8 = crt.helper.svalue.tensor! zeros<[10]>: f32\n",
         ));

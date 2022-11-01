@@ -68,8 +68,26 @@ impl HostSession {
         };
     }
 
+    // ANCHOR paper branch
+    #[cfg(feature = "phantom")]
+    pub fn init(&mut self, executor_cnt: usize) {
+        // WIP mute vulkan for now, tune with mock system
+        let msg1: LoadfreeMessage<ActTensorTypes> =
+            build_loadfree_msg!("spawn", "mock", executor_cnt);
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::LoadfreeMSG(msg1))
+                .await;
+        })
+    }
+
     // TODO refactor this workaround: config
-    #[cfg(all(not(feature = "mock"), not(feature = "vulkan"), not(feature = "blas")))]
+    #[cfg(all(
+        not(feature = "phantom"),
+        not(feature = "mock"),
+        not(feature = "vulkan"),
+        not(feature = "blas")
+    ))]
     pub fn init(&mut self, executor_cnt: usize) {
         panic!("features not set");
     }
@@ -381,7 +399,7 @@ mod tests {
         assert_eq!(0, 0);
     }
 
-    #[cfg(not(feature = "mock"))]
+    #[cfg(all(not(feature = "mock"), not(feature = "phantom")))]
     #[test]
     fn test_e2e_add() {
         let mut se = HostSession::new();
@@ -429,7 +447,7 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "mock"))]
+    #[cfg(all(not(feature = "mock"), not(feature = "phantom")))]
     #[test]
     fn test_e2e_sub() {
         let mut se = HostSession::new();
@@ -460,7 +478,7 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "mock"))]
+    #[cfg(all(not(feature = "mock"), not(feature = "phantom")))]
     #[test]
     fn test_e2e_matmul() {
         let mut se = HostSession::new();

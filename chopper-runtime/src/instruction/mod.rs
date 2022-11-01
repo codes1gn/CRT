@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use raptors::prelude::*;
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "phantom", feature = "mock", feature = "blas"))]
 use rublas::prelude::*;
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -40,6 +40,7 @@ pub enum CRTOpCode {
     DEVAT, // util instruction support phantom - allocated at dev idx
     RELU,
     SOFTMAX,
+    MAXPOOL,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -159,6 +160,9 @@ impl From<u8> for CRTOpCode {
             23 => {
                 return CRTOpCode::SOFTMAX;
             }
+            24 => {
+                return CRTOpCode::MAXPOOL;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -249,6 +253,7 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("div") => CRTOpCode::DIVF32,
             CompleteStr("relu") => CRTOpCode::RELU,
             CompleteStr("softmax") => CRTOpCode::SOFTMAX,
+            CompleteStr("maxpool") => CRTOpCode::MAXPOOL,
             // crt.devat, NOT USE IN BYTECODE but in to_bytes of modules
             _ => {
                 panic!("unknown inst");
@@ -296,13 +301,14 @@ impl From<BlasOpCode> for CRTOpCode {
     }
 }
 
-#[cfg(feature = "mock")]
+#[cfg(any(feature = "phantom", feature = "mock"))]
 impl From<CRTOpCode> for MockOpCode {
     fn from(item: CRTOpCode) -> Self {
         match item {
             CRTOpCode::EXPF32 => MockOpCode::ExpOp,
             CRTOpCode::RELU => MockOpCode::ReluOp,
             CRTOpCode::SOFTMAX => MockOpCode::SoftmaxOp,
+            CRTOpCode::MAXPOOL => MockOpCode::MaxpoolOp,
             CRTOpCode::RESHAPE => MockOpCode::ReshapeOp,
             CRTOpCode::TRANSPOSE => MockOpCode::TransposeOp,
             CRTOpCode::ADDF32 => MockOpCode::AddOp,
@@ -329,6 +335,7 @@ impl From<MockOpCode> for CRTOpCode {
             MockOpCode::ExpOp => CRTOpCode::EXPF32,
             MockOpCode::ReluOp => CRTOpCode::RELU,
             MockOpCode::SoftmaxOp => CRTOpCode::SOFTMAX,
+            MockOpCode::MaxpoolOp => CRTOpCode::MAXPOOL,
             MockOpCode::ReshapeOp => CRTOpCode::RESHAPE,
             MockOpCode::AddOp => CRTOpCode::ADDF32,
             MockOpCode::SubOp => CRTOpCode::SUBF32,

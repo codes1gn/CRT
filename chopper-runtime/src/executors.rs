@@ -6,7 +6,7 @@ use hal::{adapter::*, buffer, command, memory, pool, prelude::*, pso, query::Typ
 
 use raptors::prelude::*;
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "phantom", feature = "mock", feature = "blas"))]
 use rublas::prelude::*;
 use tracing::{debug, info};
 
@@ -78,7 +78,7 @@ impl ExecutorLike for ActExecutorTypes {
     ) -> Self::TensorType {
         // debug!("============ on computing unary =============");
         match self {
-            #[cfg(feature = "mock")]
+            #[cfg(any(feature = "mock", feature = "phantom"))]
             ActExecutorTypes::MockExecutor(ref mut _executor) => {
                 _executor.mock_unary::<Self::TensorType>(op.into(), in_tensor)
             }
@@ -103,7 +103,7 @@ impl ExecutorLike for ActExecutorTypes {
     ) -> () {
         // debug!("============ on computing unary =============");
         match self {
-            #[cfg(feature = "mock")]
+            #[cfg(any(feature = "mock", feature = "phantom"))]
             ActExecutorTypes::MockExecutor(ref mut _executor) => {
                 _executor.dma_operation::<Self::TensorType>(
                     op.into(),
@@ -132,7 +132,7 @@ impl ExecutorLike for ActExecutorTypes {
     ) -> () {
         // debug!("============ on computing unary =============");
         match self {
-            #[cfg(feature = "mock")]
+            #[cfg(any(feature = "mock", feature = "phantom"))]
             ActExecutorTypes::MockExecutor(ref mut _executor) => {
                 _executor.mock_unary_v2::<Self::TensorType>(op.into(), in_tensor, out_tensor);
             }
@@ -156,7 +156,7 @@ impl ExecutorLike for ActExecutorTypes {
     ) -> Self::TensorType {
         // debug!("============ on computing binary =============");
         match self {
-            #[cfg(feature = "mock")]
+            #[cfg(any(feature = "mock", feature = "phantom"))]
             ActExecutorTypes::MockExecutor(ref mut _executor) => {
                 _executor.mock_binary::<Self::TensorType>(op.into(), lhs_tensor, rhs_tensor)
                 // TODO use pattern match on matching tensortypes, rather than call as generic
@@ -264,7 +264,7 @@ impl ExecutorLike for ActExecutorTypes {
     ) -> () {
         // debug!("============ on computing binary =============");
         match self {
-            #[cfg(feature = "mock")]
+            #[cfg(any(feature = "mock", feature = "phantom"))]
             ActExecutorTypes::MockExecutor(ref mut _executor) => {
                 _executor.mock_binary_v2::<Self::TensorType>(
                     op.into(),

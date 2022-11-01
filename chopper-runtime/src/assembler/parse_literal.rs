@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(_bytes_result, 23);
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
     fn test_parse_usize_cross() {
         let result = parse_usize_cross(CompleteStr("23x"));
@@ -203,7 +203,7 @@ mod tests {
         assert_eq!(_bytes_result, 23);
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
     fn test_parse_ranked_tensor_shape() {
         let result = parse_ranked_tensor_shape(CompleteStr("23x7x8x"));

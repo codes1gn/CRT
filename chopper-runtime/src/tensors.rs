@@ -2,7 +2,7 @@ use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr, sync::Arc};
 
 use raptors::prelude::*;
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 use rublas::prelude::*;
 
 use crate::base::constants::*;
@@ -45,7 +45,7 @@ impl<T> TensorView<T> {
 
 impl<T> TensorLike for TensorView<T> {}
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 impl From<TensorView<f32>> for BlasTensor {
     fn from(item: TensorView<f32>) -> Self {
         BlasTensor::from_vec_shape(item.data, item.shape)
@@ -53,28 +53,28 @@ impl From<TensorView<f32>> for BlasTensor {
 }
 
 // TODO verify this impl of conversion, that will not omit excessive time/memory cost
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 impl From<&TensorView<f32>> for BlasTensor {
     fn from(item: &TensorView<f32>) -> Self {
         BlasTensor::from_vec_shape((*item.data).to_vec(), (*item.shape).to_vec())
     }
 }
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 impl From<TensorView<i32>> for BlasTensor {
     fn from(item: TensorView<i32>) -> Self {
         BlasTensor::from_vec_shape_i32(item.data, item.shape)
     }
 }
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 impl From<&TensorView<i32>> for BlasTensor {
     fn from(item: &TensorView<i32>) -> Self {
         BlasTensor::from_vec_shape_i32((*item.data).to_vec(), (*item.shape).to_vec())
     }
 }
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 impl From<BlasTensor> for TensorView<f32> {
     fn from(item: BlasTensor) -> Self {
         match item.data {
@@ -89,7 +89,7 @@ impl From<BlasTensor> for TensorView<f32> {
     }
 }
 
-#[cfg(any(feature = "mock", feature = "blas"))]
+#[cfg(any(feature = "mock", feature = "phantom", feature = "blas"))]
 impl From<BlasTensor> for TensorView<i32> {
     fn from(item: BlasTensor) -> Self {
         match item.data {

@@ -17,9 +17,23 @@ use parse_instruction::*;
 use parse_module::*;
 
 // interface for bytecode parsing
+#[cfg(feature = "phantom")]
 named!(pub parse_bytecode<CompleteStr, Program>,
     do_parse!(
-        program: parse_raw_program >> (
+        program: alt!(
+            parse_phantom_program
+        ) >> (
+            program
+        )
+    )
+);
+
+#[cfg(not(feature = "phantom"))]
+named!(pub parse_bytecode<CompleteStr, Program>,
+    do_parse!(
+        program: alt!(
+            parse_raw_program
+        ) >> (
             program
         )
     )
@@ -32,7 +46,7 @@ named!(pub parse_raw_program<CompleteStr, Program>,
         modules: many1!(
             alt!(
                 parse_module |
-                parse_phantom_module
+                parse_dispatched_module
             )
         ) >> (
             Program {
@@ -42,12 +56,12 @@ named!(pub parse_raw_program<CompleteStr, Program>,
     )
 );
 
-#[cfg(feature = "mock")]
-named!(pub parse_mock_program<CompleteStr, Program>,
+#[cfg(feature = "phantom")]
+named!(pub parse_phantom_program<CompleteStr, Program>,
     do_parse!(
         modules: many1!(
             alt!(
-                parse_mock_module
+                parse_phantom_module
             )
         ) >> (
             Program {
@@ -61,9 +75,9 @@ named!(pub parse_mock_program<CompleteStr, Program>,
 mod tests {
     use super::*;
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
-    fn test_parse_mock_program() {
+    fn test_parse_phantom_program() {
         let bytecode = "
         %0 = crt.maxpool %100 : (tensor<1x1x28x28xf32>) -> tensor<1x1x14x14xf32>
         %1 = crt.constant : () -> tensor<2xi64>
@@ -75,7 +89,7 @@ mod tests {
         %10 = crt.softmax %9 : (tensor<1x10xf32>) -> tensor<1x10xf32>
         return %10 : tensor<1x10xf32>
         ";
-        let full_result = parse_mock_module(CompleteStr(bytecode));
+        let full_result = parse_phantom_module(CompleteStr(bytecode));
         // assert_eq!(full_result.is_ok(), true);
         let (_remain, _parsed) = full_result.unwrap();
         println!("{:?}", _remain);

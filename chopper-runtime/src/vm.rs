@@ -2,7 +2,7 @@ use multimap::MultiMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
-#[cfg(any(feature = "blas", feature = "mock"))]
+#[cfg(any(feature = "blas", feature = "mock", feature = "phantom"))]
 use rublas::prelude::*;
 use tracing::{debug, info};
 
@@ -268,6 +268,7 @@ impl VM {
         self.get_tensor(&pos)
     }
 
+    #[cfg(not(feature = "phantom"))]
     fn step_impl(&mut self, exec_mode: ExecMode) -> Result<u8, RuntimeStatusError> {
         let _inst = self.fetch_instruction().unwrap();
         match _inst {
@@ -310,7 +311,7 @@ impl VM {
                 info!("::vm::ret-value retain and return");
                 Ok(2)
             }
-            // USE ALL RETAIN strategy for mock
+            // TODO fix this: USE ALL RETAIN strategy for mock
             #[cfg(feature = "mock")]
             CRTOpCode::RETV => {
                 // clear subscriber
@@ -428,7 +429,7 @@ impl VM {
                 );
                 Ok(0)
             }
-            CRTOpCode::EXPF32 => {
+            CRTOpCode::RELU | CRTOpCode::SOFTMAX | CRTOpCode::EXPF32 => {
                 let operand_out = self.decode_u8() as usize;
                 let operand_in = self.decode_u8() as usize;
                 let in_tensor = self.get_tensor(&operand_in);
@@ -740,6 +741,269 @@ impl VM {
         }
     }
 
+    #[cfg(feature = "phantom")]
+    fn step_impl(&mut self, exec_mode: ExecMode) -> Result<u8, RuntimeStatusError> {
+        let _inst = self.fetch_instruction().unwrap();
+        match _inst {
+            CRTOpCode::NOOP => Ok(0),
+            CRTOpCode::DEVAT => {
+                let _dev_at = self.decode_u8();
+                match _dev_at {
+                    u8::MAX => self.dev_at = None,
+                    _ => self.dev_at = Some(_dev_at),
+                }
+                Ok(0)
+            }
+            CRTOpCode::HALT => {
+                info!("::vm::halt-vm");
+                Ok(1)
+            }
+            CRTOpCode::ILLEGAL => {
+                info!("::vm::halt-with-Illegal-Instruction");
+                // panic!("HALT with ILLEGAL-INST {:?}", RuntimeStatusError::RT_ERROR);
+                Err(RuntimeStatusError::RT_ERROR)
+            }
+            #[cfg(feature = "phantom")]
+            CRTOpCode::RETV => {
+                info!("::vm::return from module");
+                let operand_ret = self.decode_u8() as usize;
+                // clear subscriber
+                // currently solution, wait for this retv subscriber then returns
+                let _subscriber = self
+                    .subscribers
+                    .get_vec_mut(&operand_ret)
+                    .expect(&format!("failed to fetch subscriber {}", operand_ret).to_string())
+                    .remove(0 as usize);
+                _subscriber
+                    .blocking_recv()
+                    .expect("return value computing not ready");
+                info!("::vm::ret-value compute done");
+                // TODO maybe we need a strategy to decide what results retains and drop
+                // considering function calls in module
+                self.tensor_pool.retain(|&k, _| k == operand_ret);
+                info!("::vm::ret-value retain and return");
+                Ok(2)
+            }
+            CRTOpCode::SVALUETENSOR => {
+                let operand_out = self.decode_u8() as usize;
+                let data_generator = self.decode_4_bytes();
+                // TODO currently svalue is hardcoded as float
+                let data_generator_f32 = f32::from_le_bytes(data_generator);
+                let shape_size = self.decode_vec_len() as usize;
+                let raw_shape_vec = self.decode_usize_vec(shape_size);
+                info!(
+                    "::vm::generate+store tensor-value with index #{:?}",
+                    operand_out
+                );
+                self.push_shaped_tensor_at_pos(
+                    operand_out,
+                    vec![data_generator_f32; raw_shape_vec.iter().product()],
+                    raw_shape_vec,
+                );
+                for i in 0..8 {
+                    let (notifier, subscriber) = oneshot::channel::<u8>();
+                    notifier.send(0u8);
+                    self.subscribers.insert(operand_out, subscriber);
+                }
+                info!("::vm::fill data-subscriber #{}", operand_out);
+                Ok(0)
+            }
+            CRTOpCode::RELU | CRTOpCode::SOFTMAX | CRTOpCode::EXPF32 => {
+                let operand_out = self.decode_u8() as usize;
+                let operand_in = self.decode_u8() as usize;
+                let in_tensor = self.get_tensor(&operand_in);
+                // TODO rename dataview into ActTensorTypes
+                let opcode = CRTOpCode::EXPF32;
+                match exec_mode {
+                    ExecMode::LAZY => {
+                        // non-consuming-inputs-style + non-blocking-style
+                        info!(
+                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_in, opcode
+                        );
+                        let in_subscriber = self.get_subscriber_at_pos(operand_in);
+
+                        let out_placeholder = self.get_shaped_placeholder_at_pos_or(
+                            operand_out,
+                            self.get_tensor_shape(operand_in).to_vec(),
+                        );
+
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let _subscribers = self.session.launch_non_blocking_unary_compute(
+                            opcode,
+                            in_tensor,
+                            out_placeholder,
+                            in_subscriber,
+                            operand_out,
+                            self.dev_at.clone(),
+                        );
+
+                        self.set_subscriber_at_pos(operand_out, _subscribers);
+                        info!(
+                            "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_out, opcode
+                        );
+
+                        Ok(0)
+                    }
+                    _ => panic!("unknown exec-mode"),
+                }
+            }
+            CRTOpCode::ADDF32
+            | CRTOpCode::ADDI32
+            | CRTOpCode::SUBF32
+            | CRTOpCode::SUBI32
+            | CRTOpCode::MULF32
+            | CRTOpCode::MULI32
+            | CRTOpCode::DIVF32
+            | CRTOpCode::FLOORDIVI32
+            | CRTOpCode::MATMULF32 => {
+                let operand_out = self.decode_u8() as usize;
+                let operand_lhs = self.decode_u8() as usize;
+                let operand_rhs = self.decode_u8() as usize;
+                let lhs_tensor = self.get_tensor(&operand_lhs);
+                let rhs_tensor = self.get_tensor(&operand_rhs);
+                let opcode = _inst;
+                match exec_mode {
+                    ExecMode::LAZY => {
+                        // non-consuming-inputs-style + non-blocking-style
+                        // TODO extract this logic to simplify
+                        info!(
+                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_lhs, opcode
+                        );
+                        let lhs_subscriber = self.get_subscriber_at_pos(operand_lhs);
+
+                        info!(
+                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_rhs, opcode
+                        );
+                        let rhs_subscriber = self.get_subscriber_at_pos(operand_rhs);
+
+                        info!("::create placeholder tensor for ret-value-tensor");
+                        info!(
+                            "::vm::store-ret-value with index #{:?} OP^{:?}",
+                            operand_out, opcode
+                        );
+
+                        let out_placeholder = self.get_shaped_placeholder_at_pos_or(
+                            operand_out,
+                            self.get_tensor_shape(operand_lhs).to_vec(),
+                        );
+
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let _subscribers = self.session.launch_non_blocking_binary_compute(
+                            opcode,
+                            lhs_tensor,
+                            rhs_tensor,
+                            out_placeholder,
+                            lhs_subscriber,
+                            rhs_subscriber,
+                            operand_out,
+                            self.dev_at.clone(),
+                        );
+
+                        self.set_subscriber_at_pos(operand_out, _subscribers);
+                        info!(
+                            "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_out, opcode
+                        );
+
+                        Ok(0)
+                    }
+                    _ => panic!("unknown exec-mode"),
+                }
+            }
+            CRTOpCode::TRANSPOSE | CRTOpCode::RESHAPE => {
+                let operand_out = self.decode_u8() as usize;
+                let operand_in = self.decode_u8() as usize;
+                let shape_size = self.decode_vec_len() as usize;
+                let raw_shape_vec = self.decode_usize_vec(shape_size);
+                let in_tensor = self.get_tensor(&operand_in);
+                let opcode = _inst;
+                match exec_mode {
+                    ExecMode::LAZY => {
+                        info!(
+                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_in, opcode
+                        );
+                        let _subscriber = self.get_subscriber_at_pos(operand_in);
+
+                        info!("::vm::store-ret-value with index #{:?}", operand_out);
+                        let out_placeholder = self
+                            .get_shaped_placeholder_at_pos_or(operand_out, raw_shape_vec.clone());
+
+                        let _subscribers = self.session.launch_dma_operation(
+                            opcode,
+                            in_tensor,
+                            out_placeholder,
+                            raw_shape_vec,
+                            _subscriber,
+                            operand_out,
+                            self.dev_at.clone(),
+                        );
+
+                        self.set_subscriber_at_pos(operand_out, _subscribers);
+                        info!(
+                            "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_out, opcode
+                        );
+
+                        Ok(0)
+                    }
+                    _ => panic!("unknown exec-mode"),
+                }
+            }
+            CRTOpCode::MAXPOOL => {
+                let operand_out = self.decode_u8() as usize;
+                let operand_in = self.decode_u8() as usize;
+                // TODO add new condition switch, phantom over mock
+                // TODO pack decode functions with Token types, such as decode_Function_Type
+                // decode_ranked_operand
+                let dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let result_shape = self.decode_usize_vec(_buffer_size);
+                let in_tensor = self.get_tensor(&operand_in);
+                let opcode = _inst;
+                match exec_mode {
+                    ExecMode::LAZY => {
+                        info!(
+                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_in, opcode
+                        );
+                        let in_subscriber = self.get_subscriber_at_pos(operand_in);
+
+                        let out_placeholder =
+                            self.get_shaped_placeholder_at_pos_or(operand_out, result_shape);
+
+                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        let _subscribers = self.session.launch_non_blocking_unary_compute(
+                            opcode,
+                            in_tensor,
+                            out_placeholder,
+                            in_subscriber,
+                            operand_out,
+                            self.dev_at.clone(),
+                        );
+
+                        self.set_subscriber_at_pos(operand_out, _subscribers);
+                        info!(
+                            "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
+                            operand_out, opcode
+                        );
+
+                        Ok(0)
+                    }
+                    _ => panic!("unknown exec-mode"),
+                }
+            }
+
+            _ => {
+                panic!("Not Implemented Error Execution Step Code");
+            }
+        }
+    }
+
     fn eager_step(&mut self) -> Result<u8, RuntimeStatusError> {
         info!("::vm::eager-step");
         if self.program_counter >= self.inst_buffer.len() {
@@ -803,7 +1067,7 @@ mod tests {
         assert_eq!(vm.registers[0], 0);
     }
 
-    // TODO maybe need to test the middle status when halt invoked in run-until-end way.
+    // phantom mode not support eager execution
     #[test]
     fn test_halt_step() {
         let mut vm = VM::new();

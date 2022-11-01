@@ -7,7 +7,7 @@ use super::parse_instruction::*;
 
 // phantom module is the runtime support in bytecode format that accepts
 // optimised phantom ir
-named!(pub parse_phantom_module<CompleteStr, Module>,
+named!(pub parse_dispatched_module<CompleteStr, Module>,
     do_parse!(
         opt!(multispace) >>
         tag!("phantom.block") >>
@@ -43,11 +43,11 @@ named!(pub parse_module<CompleteStr, Module>,
     )
 );
 
-#[cfg(feature = "mock")]
-named!(pub parse_mock_module<CompleteStr, Module>,
+#[cfg(feature = "phantom")]
+named!(pub parse_phantom_module<CompleteStr, Module>,
     do_parse!(
         instructions: many1!(
-            parse_mock_instruction
+            parse_phantom_instruction
         ) >>
         (
             Module {
@@ -110,6 +110,7 @@ mod tests {
         assert_eq!(_remain.is_empty(), true);
     }
 
+    #[cfg(feature = "phantom")]
     #[test]
     fn test_parse_phantom_module() {
         let bytecode = "
@@ -124,7 +125,7 @@ mod tests {
             %101 = crt.transpose! %6, [32 16 128 64]
         }
         ";
-        let full_result = parse_phantom_module(CompleteStr(bytecode));
+        let full_result = parse_dispatched_module(CompleteStr(bytecode));
         // assert_eq!(full_result.is_ok(), true);
         let (_remain, _parsed) = full_result.unwrap();
         println!("{:?}", _remain);

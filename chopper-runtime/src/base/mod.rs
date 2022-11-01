@@ -23,6 +23,28 @@ impl From<CompleteStr<'_>> for ElementType {
     }
 }
 
+impl From<u8> for ElementType {
+    fn from(s: u8) -> Self {
+        match s {
+            0 => ElementType::I32,
+            1 => ElementType::I64,
+            2 => ElementType::F32,
+            _ => panic!("not recognise this element type"),
+        }
+    }
+}
+
+impl From<&ElementType> for u8 {
+    fn from(s: &ElementType) -> Self {
+        match s {
+            ElementType::I32 => 0,
+            ElementType::I64 => 1,
+            ElementType::F32 => 2,
+            _ => panic!("not recognise this element type"),
+        }
+    }
+}
+
 pub trait SupportedType {
     fn get_type_code(&self) -> ElementType;
 }

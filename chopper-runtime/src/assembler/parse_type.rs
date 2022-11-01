@@ -8,6 +8,7 @@ use crate::base::*;
 
 // (tensor<2x3xf32>, tensor<1x1x28x28xf32>) -> tensor<1x28x28xf32>
 // ANCHOR currently only encode return type
+#[cfg(feature = "phantom")]
 named!(pub parse_function_type<CompleteStr, Token>,
     do_parse!(
         tag!("(") >>
@@ -21,6 +22,7 @@ named!(pub parse_function_type<CompleteStr, Token>,
 );
 
 // tensor<2x3xf32>, tensor<1x1x28x28xf32>
+#[cfg(feature = "phantom")]
 named!(pub parse_some_ranked_tensor_type<CompleteStr, Vec<Token>>,
     do_parse!(
         tensors: many0!(parse_ranked_tensor_type) >>
@@ -31,6 +33,7 @@ named!(pub parse_some_ranked_tensor_type<CompleteStr, Vec<Token>>,
 );
 
 // tensor<1x1x28x28xf32>
+#[cfg(feature = "phantom")]
 named!(pub parse_ranked_tensor_type<CompleteStr, Token>,
     do_parse!(
         space0 >>
@@ -107,7 +110,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
     fn test_parse_tensor_type() {
         // w.o. \n
@@ -133,7 +136,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
     fn test_parse_some_tensor_type() {
         // w.o. \n
@@ -158,7 +161,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mock")]
+    #[cfg(feature = "phantom")]
     #[test]
     fn test_parse_function_type() {
         // w.o. \n

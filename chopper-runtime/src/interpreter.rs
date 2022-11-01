@@ -8,7 +8,7 @@ use float_eq::{assert_float_eq, float_eq};
 //
 // use log::{debug, info};
 
-#[cfg(any(feature = "blas", feature = "mock"))]
+#[cfg(any(feature = "blas", feature = "phantom", feature = "mock"))]
 use tracing::{debug, info};
 
 // use opentelemetry::global;
@@ -189,6 +189,7 @@ impl Interpreter {
 }
 
 #[cfg(not(feature = "mock"))]
+#[cfg(not(feature = "phantom"))]
 #[cfg(test)]
 mod tests {
     use super::*;

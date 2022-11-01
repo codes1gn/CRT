@@ -18,8 +18,8 @@ named!(pub parse_opcode<CompleteStr, Token>,
 );
 
 // opcode
-#[cfg(feature = "mock")]
-named!(pub parse_mock_opcode<CompleteStr, Token>,
+#[cfg(feature = "phantom")]
+named!(pub parse_phantom_opcode<CompleteStr, Token>,
     do_parse!(
         // use ! tag to specify the bytecode opcode for simplicity
         tag!("crt.") >>
@@ -73,6 +73,18 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "phantom")]
+    #[test]
+    fn test_parse_binary_phantom_code() {
+        let result = parse_phantom_opcode(CompleteStr("crt.add"));
+        assert_eq!(
+            result.unwrap().1,
+            Token::BytecodeOpCode {
+                code: CRTOpCode::ADDF32
+            }
+        );
+    }
+
     #[test]
     fn test_parse_binary_code() {
         // test add
@@ -116,15 +128,6 @@ mod tests {
             }
         );
 
-        #[cfg(feature = "mock")]
-        let result = parse_mock_opcode(CompleteStr("crt.add"));
-        assert_eq!(
-            result.unwrap().1,
-            Token::BytecodeOpCode {
-                code: CRTOpCode::ADDF32
-            }
-        );
-
         // test sub
         let result = parse_opcode(CompleteStr("crt.sub.f32!"));
         assert_eq!(
@@ -152,7 +155,6 @@ mod tests {
         );
     }
 
-    // test parse crt literal const op only
     #[test]
     fn test_literal_const_i32_op() {
         let result = parse_opcode(CompleteStr("crt.literal.const.i32!"));
@@ -167,6 +169,7 @@ mod tests {
         );
         assert_eq!(rest, CompleteStr(""));
     }
+
     #[test]
     fn test_literal_const_f32_op() {
         let result = parse_opcode(CompleteStr("crt.literal.const.f32!"));
