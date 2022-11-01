@@ -25,6 +25,20 @@ named!(pub parse_instruction<CompleteStr, AsmInstruction>,
     )
 );
 
+#[cfg(feature = "mock")]
+named!(pub parse_mock_instruction<CompleteStr, AsmInstruction>,
+    do_parse!(
+        opt!(multispace) >>
+        _inst: alt!(
+            parse_mock_zenary_instruction | parse_mock_binary_instruction | parse_mock_unary_instruction | parse_comment | parse_mock_return
+        ) >>
+        opt!(multispace) >>
+        (
+            _inst
+        )
+    )
+);
+
 // halt
 named!(parse_halt<CompleteStr, AsmInstruction>,
     do_parse!(
@@ -57,6 +71,33 @@ named!(parse_comment<CompleteStr, AsmInstruction>,
             AsmInstruction {
                 opcode: Token::BytecodeOpCode { code: CRTOpCode::from(CompleteStr("crt.noop")) },
                 operand1: None,
+                operand2: None,
+                operand3: None,
+            }
+        )
+    )
+);
+
+#[cfg(feature = "mock")]
+named!(parse_mock_return<CompleteStr, AsmInstruction>,
+    do_parse!(
+        _opcode: alt!(
+            tag!("return")
+        ) >>
+        opt!(multispace) >>
+        // TODO runtime function is functional, no side
+        //  effect, must clear all results without returns
+        _operand1: parse_operand >>
+        space0 >>
+        tag!(":") >>
+        space0 >>
+        _dtype: parse_ranked_tensor_type >>
+        // must use multispace, since we have to identify change lines of halt itself.
+        opt!(multispace) >>
+        (
+            AsmInstruction {
+                opcode: Token::BytecodeOpCode { code: CRTOpCode::from(_opcode) },
+                operand1: Some(_operand1),
                 operand2: None,
                 operand3: None,
             }
@@ -112,10 +153,97 @@ named!(parse_return<CompleteStr, AsmInstruction>,
 //         )
 //     )
 // );
+//
+//
+// ANCHOR mock
+#[cfg(feature = "mock")]
+named!(
+    parse_mock_binary_instruction<CompleteStr, AsmInstruction>,
+    do_parse!(
+        _result: parse_operand >>
+        tag!("= ") >>
+        _opcode: parse_mock_opcode >>
+        _operand_lhs: parse_operand >>
+        tag!(", ") >>
+        _operand_rhs: parse_operand >>
+        tag!(": ") >>
+        // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
+        // status nor this static type info
+        _dtype: parse_function_type >>
+        (
+            AsmInstruction {
+                opcode: _opcode,
+                operand1: Some(_result),
+                operand2: Some(_operand_lhs),
+                operand3: Some(_operand_rhs),
+            }
+        )
+    )
+);
+
+#[cfg(feature = "mock")]
+named!(
+    parse_mock_unary_instruction<CompleteStr, AsmInstruction>,
+    do_parse!(
+        out_operand: parse_operand >>
+        tag!("=") >>
+        _s1: space0 >>
+        opcode: parse_mock_opcode >>
+        in_operand: parse_operand >>
+        tag!(": ") >>
+        _dtype: parse_function_type >>
+        (
+            AsmInstruction {
+                opcode: opcode,
+                operand1: Some(out_operand),
+                operand2: Some(in_operand),
+                operand3: None,
+
+            }
+        )
+    )
+);
+
+#[cfg(feature = "mock")]
+named!(
+    parse_mock_zenary_instruction<CompleteStr, AsmInstruction>,
+    do_parse!(
+        out_operand: parse_operand >>
+        tag!("=") >>
+        _s1: space0 >>
+        opcode: parse_mock_opcode >>
+        space0 >>
+        tag!(": ") >>
+        _dtype: parse_function_type >>
+        (
+            // Token::UninitTensor { data_generator: 0f32, shape: _shape }
+            // Token::TensorType {
+            //     dtype: ElementType::from(dtype_token),
+            //     shape: ranked_shape,
+            // }
+            match _dtype {
+                Token::TensorType { dtype, shape } => {
+                    AsmInstruction {
+                        opcode: opcode,
+                        operand1: Some(out_operand),
+                        operand2: Some(Token::UninitTensor {
+                            // hardcode for now
+                            data_generator: 0f32,
+                            shape: shape,
+                        }),
+                        operand3: None,
+                    }
+                },
+                _ => panic!("expect token::tensor-type"),
+            }
+        )
+    )
+);
 
 // binary-assignment ::= out-operand opcode lhs-operand rhs-operand
 // lhs-operand ::= operand | numeric-literal
 // rhs-operand ::= operand | numeric-literal
+// %86 = crt.add %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>
 named!(
     parse_binary_assignment<CompleteStr, AsmInstruction>,
     do_parse!(
@@ -126,14 +254,15 @@ named!(
         tag!(", ") >>
         _operand_rhs: parse_operand >>
         tag!(": ") >>
-        _dtype: parse_type >>
+        // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
+        // status nor this static type info
+        _dtype: alt!(parse_type | parse_function_type) >>
         (
             AsmInstruction {
                 opcode: _opcode,
                 operand1: Some(_result),
                 operand2: Some(_operand_lhs),
                 operand3: Some(_operand_rhs),
-
             }
         )
     )
@@ -264,6 +393,30 @@ mod tests {
         assert_eq!(_bytes_result, vec![5, 3, 2, 0])
     }
 
+    #[cfg(feature = "mock")]
+    #[test]
+    fn test_parse_mock_exp() {
+        let result = parse_mock_unary_instruction(CompleteStr(
+            "%3 = crt.exp %2 : (tensor<1x128xf32>) -> tensor<1x128xf32>",
+        ));
+        assert_eq!(result.is_ok(), true);
+        let (_remain, _bytes_result) = result.unwrap();
+        println!("{:?}", _remain);
+        assert_eq!(_bytes_result.to_bytes(), vec![16, 3, 2])
+    }
+
+    #[cfg(feature = "mock")]
+    #[test]
+    fn test_parse_mock_maxpool() {
+        let result = parse_mock_unary_instruction(CompleteStr(
+            "%0 = crt.maxpool %100 : (tensor<1x1x28x28xf32>) -> tensor<1x1x14x14xf32>",
+        ));
+        // assert_eq!(result.is_ok(), true);
+        let (_remain, _bytes_result) = result.unwrap();
+        println!("{:?}", _remain);
+        // assert_eq!(_bytes_result.to_bytes(), vec![16, 3, 2])
+    }
+
     #[test]
     fn test_parse_integer_literal() {
         let result = parse_integer_literal(CompleteStr("23"));
@@ -328,6 +481,27 @@ mod tests {
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
         assert_eq!(_bytes_result, vec![13, 0, 7, 9]);
+
+        // %86 = crt.add %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>
+        let result = parse_mock_instruction(CompleteStr("%86 = crt.matmul %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>"));
+        println!("{:?}", result);
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1.to_bytes();
+        assert_eq!(_bytes_result, vec![13, 86, 82, 85]);
+    }
+
+    #[test]
+    fn test_instruction_constant() {
+        // %8 = crt.constant : () -> tensor<10xf32>
+        let result =
+            parse_mock_instruction(CompleteStr("%8 = crt.constant : () -> tensor<10xf32>"));
+        let ref_result = parse_instruction(CompleteStr(
+            "%8 = crt.helper.svalue.tensor! zeros<[10]>: f32\n",
+        ));
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1.to_bytes();
+        let _ref_bytes_result = ref_result.unwrap().1.to_bytes();
+        assert_eq!(_bytes_result, _ref_bytes_result);
     }
 
     #[test]

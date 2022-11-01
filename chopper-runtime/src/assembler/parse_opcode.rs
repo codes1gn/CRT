@@ -12,8 +12,21 @@ use crate::assembler::assembler_base::Token;
 named!(pub parse_opcode<CompleteStr, Token>,
     do_parse!(
         // use ! tag to specify the bytecode opcode for simplicity
-        opcode: take_until_and_consume1!("!")
-        >> (Token::BytecodeOpCode { code: CRTOpCode::from(opcode) })
+        opcode: take_until_and_consume1!("!") >>
+        (Token::BytecodeOpCode { code: CRTOpCode::from(opcode) })
+    )
+);
+
+// opcode
+#[cfg(feature = "mock")]
+named!(pub parse_mock_opcode<CompleteStr, Token>,
+    do_parse!(
+        // use ! tag to specify the bytecode opcode for simplicity
+        tag!("crt.") >>
+        opcode: alphanumeric >>
+        (
+            Token::BytecodeOpCode { code: CRTOpCode::from(opcode) }
+        )
     )
 );
 
@@ -102,6 +115,16 @@ mod tests {
                 code: CRTOpCode::ADDF32
             }
         );
+
+        #[cfg(feature = "mock")]
+        let result = parse_mock_opcode(CompleteStr("crt.add"));
+        assert_eq!(
+            result.unwrap().1,
+            Token::BytecodeOpCode {
+                code: CRTOpCode::ADDF32
+            }
+        );
+
         // test sub
         let result = parse_opcode(CompleteStr("crt.sub.f32!"));
         assert_eq!(

@@ -38,6 +38,8 @@ pub enum CRTOpCode {
     TRANSPOSE,
     NOOP,
     DEVAT, // util instruction support phantom - allocated at dev idx
+    RELU,
+    SOFTMAX,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -151,6 +153,12 @@ impl From<u8> for CRTOpCode {
             21 => {
                 return CRTOpCode::DEVAT;
             }
+            22 => {
+                return CRTOpCode::RELU;
+            }
+            23 => {
+                return CRTOpCode::SOFTMAX;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -219,16 +227,28 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("crt.literal.const.f32") => CRTOpCode::CONSTF32,
             CompleteStr("crt.literal.const.tensor") => CRTOpCode::CONSTTENSOR,
             CompleteStr("crt.helper.svalue.tensor") => CRTOpCode::SVALUETENSOR,
+            CompleteStr("constant") => CRTOpCode::SVALUETENSOR,
             CompleteStr("crt.helper.rng.tensor") => CRTOpCode::RNGTENSOR,
             CompleteStr("crt.add.f32") => CRTOpCode::ADDF32,
+            CompleteStr("add") => CRTOpCode::ADDF32,
             CompleteStr("crt.sub.f32") => CRTOpCode::SUBF32,
+            CompleteStr("sub") => CRTOpCode::SUBF32,
             CompleteStr("crt.exp.f32") => CRTOpCode::EXPF32,
+            CompleteStr("exp") => CRTOpCode::EXPF32,
             CompleteStr("crt.reshape") => CRTOpCode::RESHAPE,
+            CompleteStr("reshape") => CRTOpCode::RESHAPE,
             CompleteStr("crt.transpose") => CRTOpCode::TRANSPOSE,
+            CompleteStr("transpose") => CRTOpCode::TRANSPOSE,
             CompleteStr("crt.noop") => CRTOpCode::NOOP,
+            CompleteStr("noop") => CRTOpCode::NOOP,
             CompleteStr("crt.mul.f32") => CRTOpCode::MULF32,
+            CompleteStr("mul") => CRTOpCode::MULF32,
             CompleteStr("crt.matmul.f32") => CRTOpCode::MATMULF32,
+            CompleteStr("matmul") => CRTOpCode::MATMULF32,
             CompleteStr("crt.div.f32") => CRTOpCode::DIVF32,
+            CompleteStr("div") => CRTOpCode::DIVF32,
+            CompleteStr("relu") => CRTOpCode::RELU,
+            CompleteStr("softmax") => CRTOpCode::SOFTMAX,
             // crt.devat, NOT USE IN BYTECODE but in to_bytes of modules
             _ => {
                 panic!("unknown inst");
@@ -281,6 +301,8 @@ impl From<CRTOpCode> for MockOpCode {
     fn from(item: CRTOpCode) -> Self {
         match item {
             CRTOpCode::EXPF32 => MockOpCode::ExpOp,
+            CRTOpCode::RELU => MockOpCode::ReluOp,
+            CRTOpCode::SOFTMAX => MockOpCode::SoftmaxOp,
             CRTOpCode::RESHAPE => MockOpCode::ReshapeOp,
             CRTOpCode::TRANSPOSE => MockOpCode::TransposeOp,
             CRTOpCode::ADDF32 => MockOpCode::AddOp,
@@ -305,6 +327,8 @@ impl From<MockOpCode> for CRTOpCode {
     fn from(item: MockOpCode) -> Self {
         match item {
             MockOpCode::ExpOp => CRTOpCode::EXPF32,
+            MockOpCode::ReluOp => CRTOpCode::RELU,
+            MockOpCode::SoftmaxOp => CRTOpCode::SOFTMAX,
             MockOpCode::ReshapeOp => CRTOpCode::RESHAPE,
             MockOpCode::AddOp => CRTOpCode::ADDF32,
             MockOpCode::SubOp => CRTOpCode::SUBF32,

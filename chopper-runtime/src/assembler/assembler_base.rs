@@ -26,6 +26,10 @@ pub enum Token {
         raw_data: Vec<f32>,
         shape: Vec<usize>,
     },
+    TensorType {
+        dtype: ElementType,
+        shape: Vec<usize>,
+    },
     UninitTensor {
         data_generator: f32,
         shape: Vec<usize>,

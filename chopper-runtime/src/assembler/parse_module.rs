@@ -43,6 +43,21 @@ named!(pub parse_module<CompleteStr, Module>,
     )
 );
 
+#[cfg(feature = "mock")]
+named!(pub parse_mock_module<CompleteStr, Module>,
+    do_parse!(
+        instructions: many1!(
+            parse_mock_instruction
+        ) >>
+        (
+            Module {
+                dev_at: None,
+                instructions: instructions
+            }
+        )
+    )
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,7 +70,11 @@ mod tests {
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1.to_bytes();
-        assert_eq!(_bytes_result, vec![6, 0, 13, 0, 0, 0, 6, 0, 13, 0, 0, 0])
+        // first annotate devat
+        assert_eq!(
+            _bytes_result,
+            vec![21, 255, 6, 0, 13, 0, 0, 0, 6, 0, 13, 0, 0, 0]
+        )
     }
 
     #[test]

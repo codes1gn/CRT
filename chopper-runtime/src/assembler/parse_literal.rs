@@ -85,6 +85,29 @@ named!(pub parse_integer_list<CompleteStr, Vec<usize>>,
     )
 );
 
+// 1x2x3x => vec![1,2,3]
+named!(pub parse_ranked_tensor_shape<CompleteStr, Vec<usize>>,
+    do_parse!(
+        data: many1!(
+            parse_usize_cross
+        ) >>
+        (
+            data
+        )
+    )
+);
+
+// 2x => 2
+named!(pub parse_usize_cross<CompleteStr, usize>,
+    do_parse!(
+        data: digit >>
+        tag!("x") >>
+        (
+            data.parse::<usize>().unwrap()
+        )
+    )
+);
+
 named!(pub parse_usize_literal<CompleteStr, usize>,
     do_parse!(
         _s: space0 >>
@@ -169,6 +192,24 @@ mod tests {
         assert_eq!(result.is_ok(), true);
         let _bytes_result = result.unwrap().1;
         assert_eq!(_bytes_result, 23);
+    }
+
+    #[cfg(feature = "mock")]
+    #[test]
+    fn test_parse_usize_cross() {
+        let result = parse_usize_cross(CompleteStr("23x"));
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1;
+        assert_eq!(_bytes_result, 23);
+    }
+
+    #[cfg(feature = "mock")]
+    #[test]
+    fn test_parse_ranked_tensor_shape() {
+        let result = parse_ranked_tensor_shape(CompleteStr("23x7x8x"));
+        assert_eq!(result.is_ok(), true);
+        let _bytes_result = result.unwrap().1;
+        assert_eq!(_bytes_result, vec![23, 7, 8]);
     }
 
     #[test]
