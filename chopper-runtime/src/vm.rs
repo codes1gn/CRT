@@ -812,8 +812,7 @@ impl VM {
                 let operand_out = self.decode_u8() as usize;
                 let operand_in = self.decode_u8() as usize;
                 let in_tensor = self.get_tensor(&operand_in);
-                // TODO rename dataview into ActTensorTypes
-                let opcode = CRTOpCode::EXPF32;
+                let opcode = _inst;
                 match exec_mode {
                     ExecMode::LAZY => {
                         // non-consuming-inputs-style + non-blocking-style
