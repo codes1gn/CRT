@@ -314,6 +314,30 @@ impl ExecutorLike for ActExecutorTypes {
             _ => panic!("not registered backend typeid"),
         }
     }
+
+    fn tenary_compute_v2(
+        &mut self,
+        op: Self::OpCodeType,
+        first_tensor: Arc<RwLock<Self::TensorType>>,
+        second_tensor: Arc<RwLock<Self::TensorType>>,
+        third_tensor: Arc<RwLock<Self::TensorType>>,
+        out_tensor: Arc<RwLock<Self::TensorType>>,
+    ) -> () {
+        // debug!("============ on computing binary =============");
+        match self {
+            #[cfg(feature = "phantom")]
+            ActExecutorTypes::MockExecutor(ref mut _executor) => {
+                _executor.mock_tenary_v2::<Self::TensorType>(
+                    op.into(),
+                    first_tensor,
+                    second_tensor,
+                    third_tensor,
+                    out_tensor,
+                );
+            }
+            _ => panic!("not registered backend typeid"),
+        }
+    }
 }
 
 #[cfg(test)]

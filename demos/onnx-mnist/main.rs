@@ -31,23 +31,23 @@ fn mnist() {
     %100 = crt.constant : () -> tensor<1x1x28x28xf32>
     %0 = crt.maxpool %100 : (tensor<1x1x28x28xf32>) -> tensor<1x1x14x14xf32>
     %1 = crt.constant : () -> tensor<2xi64>
-    // %2 = "onnx.Reshape"(%0, %1) {allowzero = 0 : si64, onnx_node_name = "Reshape_2"} : (tensor<1x1x14x14xf32>, tensor<2xi64>) -> tensor<1x196xf32>
+    %2 = crt.reshape %0, %1 : (tensor<1x1x14x14xf32>, tensor<2xi64>) -> tensor<1x196xf32>
     %3 = crt.constant : () -> tensor<128x196xf32>
     %4 = crt.constant : () -> tensor<128xf32>
-    // %5 = crt.gemm %2, %3, %4 : (tensor<1x196xf32>, tensor<128x196xf32>, tensor<128xf32>) -> tensor<1x128xf32>
-    // %6 = crt.relu %5 : (tensor<1x128xf32>) -> tensor<1x128xf32>
+    %5 = crt.gemm %2, %3, %4 : (tensor<1x196xf32>, tensor<128x196xf32>, tensor<128xf32>) -> tensor<1x128xf32>
+    %6 = crt.relu %5 : (tensor<1x128xf32>) -> tensor<1x128xf32>
     %7 = crt.constant : () -> tensor<10x128xf32>
     %8 = crt.constant : () -> tensor<10xf32>
-    // %9 = crt.gemm %6, %7, %8 : (tensor<1x128xf32>, tensor<10x128xf32>, tensor<10xf32>) -> tensor<1x10xf32>
-    // %10 = crt.softmax %9 : (tensor<1x10xf32>) -> tensor<1x10xf32>
-    return %0 : tensor<1x10xf32>
+    %9 = crt.gemm %6, %7, %8 : (tensor<1x128xf32>, tensor<10x128xf32>, tensor<10xf32>) -> tensor<1x10xf32>
+    %10 = crt.softmax %9 : (tensor<1x10xf32>) -> tensor<1x10xf32>
+    return %10 : tensor<1x10xf32>
     "#;
     let mut ipt = Interpreter::new();
     ipt.init(3);
 
     // split reshape
     ipt.run_bytecode_lazily(bytecode);
-    ipt.vm.dump_tensor_f32(0);
+    ipt.vm.dump_tensor_f32(10);
 }
 
 fn main() {

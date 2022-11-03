@@ -41,6 +41,7 @@ pub enum CRTOpCode {
     RELU,
     SOFTMAX,
     MAXPOOL,
+    GEMM,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -163,6 +164,9 @@ impl From<u8> for CRTOpCode {
             24 => {
                 return CRTOpCode::MAXPOOL;
             }
+            25 => {
+                return CRTOpCode::GEMM;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -254,6 +258,7 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("relu") => CRTOpCode::RELU,
             CompleteStr("softmax") => CRTOpCode::SOFTMAX,
             CompleteStr("maxpool") => CRTOpCode::MAXPOOL,
+            CompleteStr("gemm") => CRTOpCode::GEMM,
             // crt.devat, NOT USE IN BYTECODE but in to_bytes of modules
             _ => {
                 panic!("unknown inst");
@@ -309,6 +314,7 @@ impl From<CRTOpCode> for MockOpCode {
             CRTOpCode::RELU => MockOpCode::ReluOp,
             CRTOpCode::SOFTMAX => MockOpCode::SoftmaxOp,
             CRTOpCode::MAXPOOL => MockOpCode::MaxpoolOp,
+            CRTOpCode::GEMM => MockOpCode::GemmOp,
             CRTOpCode::RESHAPE => MockOpCode::ReshapeOp,
             CRTOpCode::TRANSPOSE => MockOpCode::TransposeOp,
             CRTOpCode::ADDF32 => MockOpCode::AddOp,
@@ -336,6 +342,7 @@ impl From<MockOpCode> for CRTOpCode {
             MockOpCode::ReluOp => CRTOpCode::RELU,
             MockOpCode::SoftmaxOp => CRTOpCode::SOFTMAX,
             MockOpCode::MaxpoolOp => CRTOpCode::MAXPOOL,
+            MockOpCode::GemmOp => CRTOpCode::GEMM,
             MockOpCode::ReshapeOp => CRTOpCode::RESHAPE,
             MockOpCode::AddOp => CRTOpCode::ADDF32,
             MockOpCode::SubOp => CRTOpCode::SUBF32,

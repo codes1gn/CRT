@@ -50,13 +50,28 @@ pub enum Token {
     },
 }
 
-// The abstract struct for asm inst.
+#[cfg(not(feature = "phantom"))]
 #[derive(Debug, PartialEq, Clone)]
 pub struct AsmInstruction {
     pub(crate) opcode: Token,
     pub(crate) operand1: Option<Token>,
     pub(crate) operand2: Option<Token>,
     pub(crate) operand3: Option<Token>,
+}
+
+// The abstract struct for asm inst.
+#[cfg(feature = "phantom")]
+#[derive(Debug, PartialEq, Clone)]
+pub struct AsmInstruction {
+    pub(crate) opcode: Token,
+    pub(crate) operand1: Option<Token>,
+    pub(crate) operand2: Option<Token>,
+    pub(crate) operand3: Option<Token>,
+    pub(crate) operand4: Option<Token>,
+    pub(crate) operand2_type: Option<Token>,
+    pub(crate) operand3_type: Option<Token>,
+    pub(crate) operand4_type: Option<Token>,
+    pub(crate) result_type: Option<Token>,
 }
 
 // impl a function that can throw the asminstruction into a Vec<u8> format
@@ -378,6 +393,227 @@ impl AsmInstruction {
             },
             None => {} // do nothing if this operand is empty
         }
+        // ANCHOR use this in phantom branch
+        #[cfg(feature = "phantom")]
+        match &self.operand4 {
+            Some(t) => match t {
+                Token::Variable { symbol } => {
+                    results.push(*symbol);
+                }
+                Token::I32Literal { value } => {
+                    let values = value.to_le_bytes();
+                    for _value in values {
+                        results.push(_value);
+                    }
+                }
+                Token::F32Literal { value } => {
+                    let values = value.to_le_bytes();
+                    for _value in values {
+                        results.push(_value);
+                    }
+                }
+                Token::Shape { raw_shape } => {
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&raw_shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                // used for paper
+                #[cfg(feature = "phantom")]
+                Token::TensorType { dtype, shape } => {
+                    let dtype_code: u8 = dtype.into();
+                    results.push(dtype_code);
+
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                Token::UninitTensor {
+                    data_generator,
+                    shape,
+                } => {
+                    // push data_generator
+                    let values = data_generator.to_le_bytes();
+                    for _value in values {
+                        results.push(_value);
+                    }
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                Token::UninitRNGTensor {
+                    distribution,
+                    shape,
+                } => {
+                    // push distribution
+                    results.push(*distribution);
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                Token::Tensor { raw_data, shape } => {
+                    let data_bytes: Vec<u8> = bincode::serialize(&raw_data).unwrap();
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let data_len = data_bytes.len() as u16;
+                    let data_len_bytes = data_len.to_le_bytes();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    // println!("{:?}", data_len);
+                    // println!("{:?}", shape_bytes);
+                    // println!("{:?}", shape_len);
+                    // assert_eq!(0, 1);
+                    // println!("{:?}", data_len_bytes.len());
+                    // assert_eq!(0, 1);
+                    for _data_len in data_len_bytes {
+                        results.push(_data_len);
+                    }
+                    for _data in data_bytes {
+                        results.push(_data)
+                    }
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                _ => {
+                    panic!("register or literal/operand only");
+                }
+            },
+            None => {} // do nothing if this operand is empty
+        }
+        #[cfg(feature = "phantom")]
+        match &self.operand2_type {
+            Some(t) => match t {
+                // used for paper
+                Token::TensorType { dtype, shape } => {
+                    let dtype_code: u8 = dtype.into();
+                    results.push(dtype_code);
+
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                _ => {
+                    panic!("register or literal/operand only");
+                }
+            },
+            None => {} // do nothing if this operand is empty
+        }
+
+        #[cfg(feature = "phantom")]
+        match &self.operand3_type {
+            Some(t) => match t {
+                // used for paper
+                Token::TensorType { dtype, shape } => {
+                    let dtype_code: u8 = dtype.into();
+                    results.push(dtype_code);
+
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                _ => {
+                    panic!("register or literal/operand only");
+                }
+            },
+            None => {} // do nothing if this operand is empty
+        }
+
+        #[cfg(feature = "phantom")]
+        match &self.operand4_type {
+            Some(t) => match t {
+                // used for paper
+                Token::TensorType { dtype, shape } => {
+                    let dtype_code: u8 = dtype.into();
+                    results.push(dtype_code);
+
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                _ => {
+                    panic!("register or literal/operand only");
+                }
+            },
+            None => {} // do nothing if this operand is empty
+        }
+
+        #[cfg(feature = "phantom")]
+        match &self.result_type {
+            Some(t) => match t {
+                // used for paper
+                Token::TensorType { dtype, shape } => {
+                    let dtype_code: u8 = dtype.into();
+                    results.push(dtype_code);
+
+                    // push shape
+                    let shape_bytes: Vec<u8> = bincode::serialize(&shape).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
+                _ => {
+                    panic!("register or literal/operand only");
+                }
+            },
+            None => {} // do nothing if this operand is empty
+        }
+
         return results;
     }
 }

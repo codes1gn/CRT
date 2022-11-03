@@ -12,11 +12,23 @@ use crate::base::*;
 named!(pub parse_function_type<CompleteStr, Token>,
     do_parse!(
         tag!("(") >>
-        parse_some_ranked_tensor_type >>
+        operands_type: parse_some_ranked_tensor_type >>
         tag!(") -> ") >>
         ret_type: parse_ranked_tensor_type >>
         (
             ret_type
+        )
+    )
+);
+#[cfg(feature = "phantom")]
+named!(pub parse_function_type_tuple<CompleteStr, (Vec<Token>, Token)>,
+    do_parse!(
+        tag!("(") >>
+        operands_type: parse_some_ranked_tensor_type >>
+        tag!(") -> ") >>
+        ret_type: parse_ranked_tensor_type >>
+        (
+            (operands_type, ret_type)
         )
     )
 );
@@ -169,10 +181,29 @@ mod tests {
             "(tensor<2x3xf32>, tensor<1x1x28x28xf32>) -> tensor<1x28x28xf32>",
         ));
         assert_eq!(result.is_ok(), true);
-        let (_remain, _bytes_result) = result.unwrap();
+        let (_remain, _restype) = result.unwrap();
         assert_eq!(_remain, CompleteStr(""));
         assert_eq!(
-            _bytes_result,
+            _restype,
+            Token::TensorType {
+                dtype: ElementType::F32,
+                shape: vec![1, 28, 28],
+            },
+        );
+    }
+
+    #[cfg(feature = "phantom")]
+    #[test]
+    fn test_parse_function_type_tuple() {
+        // w.o. \n
+        let result = parse_function_type_tuple(CompleteStr(
+            "(tensor<2x3xf32>, tensor<1x1x28x28xf32>) -> tensor<1x28x28xf32>",
+        ));
+        assert_eq!(result.is_ok(), true);
+        let (_remain, (_optype, _restype)) = result.unwrap();
+        assert_eq!(_remain, CompleteStr(""));
+        assert_eq!(
+            _restype,
             Token::TensorType {
                 dtype: ElementType::F32,
                 shape: vec![1, 28, 28],

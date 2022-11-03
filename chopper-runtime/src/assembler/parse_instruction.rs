@@ -30,7 +30,7 @@ named!(pub parse_phantom_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
         opt!(multispace) >>
         _inst: alt!(
-            parse_phantom_zenary_instruction | parse_phantom_binary_instruction | parse_phantom_unary_instruction | parse_comment | parse_phantom_return
+            parse_phantom_zenary_instruction | parse_phantom_tenary_instruction| parse_phantom_binary_instruction | parse_phantom_unary_instruction | parse_comment | parse_phantom_return
         ) >>
         opt!(multispace) >>
         (
@@ -53,6 +53,16 @@ named!(parse_halt<CompleteStr, AsmInstruction>,
                 operand1: None,
                 operand2: None,
                 operand3: None,
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
             }
         )
     )
@@ -73,6 +83,16 @@ named!(parse_comment<CompleteStr, AsmInstruction>,
                 operand1: None,
                 operand2: None,
                 operand3: None,
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
             }
         )
     )
@@ -100,6 +120,16 @@ named!(parse_phantom_return<CompleteStr, AsmInstruction>,
                 operand1: Some(_operand1),
                 operand2: None,
                 operand3: None,
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
             }
         )
     )
@@ -123,6 +153,16 @@ named!(parse_return<CompleteStr, AsmInstruction>,
                 operand1: Some(_operand1),
                 operand2: None,
                 operand3: None,
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
             }
         )
     )
@@ -175,6 +215,51 @@ named!(
                 operand1: Some(_result),
                 operand2: Some(_operand_lhs),
                 operand3: Some(_operand_rhs),
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
+            }
+        )
+    )
+);
+
+#[cfg(feature = "phantom")]
+named!(
+    parse_phantom_tenary_instruction<CompleteStr, AsmInstruction>,
+    do_parse!(
+        _result: parse_operand >>
+        tag!("= ") >>
+        _opcode: parse_phantom_opcode >>
+        _operand_first: parse_operand >>
+        tag!(", ") >> _operand_second: parse_operand >>
+        tag!(", ") >> _operand_third: parse_operand >>
+        tag!(": ") >>
+        // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
+        // status nor this static type info
+        _func_type: parse_function_type_tuple >>
+        (
+            AsmInstruction {
+                opcode: _opcode,
+                operand1: Some(_result),
+                operand2: Some(_operand_first),
+                operand3: Some(_operand_second),
+                #[cfg(feature = "phantom")]
+                operand4: Some(_operand_third),
+                #[cfg(feature = "phantom")]
+                operand2_type: Some(_func_type.0[0].clone()),
+                #[cfg(feature = "phantom")]
+                operand3_type: Some(_func_type.0[1].clone()),
+                #[cfg(feature = "phantom")]
+                operand4_type: Some(_func_type.0[2].clone()),
+                #[cfg(feature = "phantom")]
+                result_type: Some(_func_type.1),
             }
         )
     )
@@ -200,6 +285,16 @@ named!(
                         operand1: Some(out_operand),
                         operand2: Some(in_operand),
                         operand3: Some(_dtype),
+                        #[cfg(feature = "phantom")]
+                        operand4: None,
+                        #[cfg(feature = "phantom")]
+                        operand2_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand3_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand4_type: None,
+                        #[cfg(feature = "phantom")]
+                        result_type: None,
                     }
 
                 },
@@ -210,6 +305,16 @@ named!(
                         operand1: Some(out_operand),
                         operand2: Some(in_operand),
                         operand3: None,
+                        #[cfg(feature = "phantom")]
+                        operand4: None,
+                        #[cfg(feature = "phantom")]
+                        operand2_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand3_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand4_type: None,
+                        #[cfg(feature = "phantom")]
+                        result_type: None,
                     }
                 }
             }
@@ -245,6 +350,16 @@ named!(
                             shape: shape,
                         }),
                         operand3: None,
+                        #[cfg(feature = "phantom")]
+                        operand4: None,
+                        #[cfg(feature = "phantom")]
+                        operand2_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand3_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand4_type: None,
+                        #[cfg(feature = "phantom")]
+                        result_type: None,
                     }
                 },
                 _ => panic!("expect token::tensor-type"),
@@ -276,6 +391,16 @@ named!(
                 operand1: Some(_result),
                 operand2: Some(_operand_lhs),
                 operand3: Some(_operand_rhs),
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
             }
         )
     )
@@ -306,6 +431,16 @@ named!(
                 operand1: Some(out_operand),
                 operand2: Some(in_operand),
                 operand3: None,
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
 
             }
         )
@@ -331,6 +466,16 @@ named!(
                 operand1: Some(out_operand),
                 operand2: Some(in_operand),
                 operand3: Some(_shape),
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: None,
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: None,
             }
         )
     )

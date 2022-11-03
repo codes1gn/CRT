@@ -292,6 +292,49 @@ impl HostSession {
         return ready_checkers;
     }
 
+    #[cfg(feature = "phantom")]
+    pub fn launch_non_blocking_tenary_compute(
+        &mut self,
+        opcode: CRTOpCode,
+        first_tensor: Arc<RwLock<ActTensorTypes>>,
+        second_tensor: Arc<RwLock<ActTensorTypes>>,
+        third_tensor: Arc<RwLock<ActTensorTypes>>,
+        out_tensor: Arc<RwLock<ActTensorTypes>>,
+        first_signal_box: oneshot::Receiver<u8>,
+        second_signal_box: oneshot::Receiver<u8>,
+        third_signal_box: oneshot::Receiver<u8>,
+        respond_id: usize,
+        dev_at: Option<u8>,
+    ) -> Vec<oneshot::Receiver<u8>> {
+        // assume only one consumer after
+        let (notifiers, ready_checkers) = self.build_notifiers_and_ready_checkers(4);
+        let opmsg = PayloadMessage::NonRetTenaryComputeFunctorMsg {
+            op: opcode,
+            first: first_tensor,
+            second: second_tensor,
+            third: third_tensor,
+            out: out_tensor,
+            first_ready_checker: first_signal_box,
+            second_ready_checker: second_signal_box,
+            third_ready_checker: third_signal_box,
+            respond_to: notifiers,
+            respond_id: respond_id,
+            dev_at: dev_at,
+        };
+        debug!(
+            "::launch_non_blocking_binary_compute::send msg to actor_system {:#?}",
+            opmsg
+        );
+        self.async_runtime.block_on(async {
+            self.actor_system
+                .issue_order(RaptorMessage::PayloadMSG(opmsg))
+                .await;
+        });
+
+        info!("::Non-blocking-launching Finished, return recv_box");
+        return ready_checkers;
+    }
+
     pub fn launch_non_blocking_binary_compute(
         &mut self,
         opcode: CRTOpCode,
