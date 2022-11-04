@@ -25,6 +25,10 @@ name = "crt-test"
 path = "crt-raptors/main.rs"
 
 [[bin]]
+name = "onnx-resnet"
+path = "onnx-resnet/main.rs"
+
+[[bin]]
 name = "onnx-mnist"
 path = "onnx-mnist/main.rs"
 

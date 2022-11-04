@@ -5,6 +5,21 @@ use nom::*;
 use super::parse_type::*;
 use crate::assembler::assembler_base::Token;
 
+#[cfg(feature = "phantom")]
+named!(pub parse_operand_str <CompleteStr, Token>,
+    ws!(
+        do_parse!(
+            tag!("%") >>
+            lab_symbol: alphanumeric1 >>
+            (
+                Token::ArgName {
+                  arg_str: lab_symbol.parse::<String>().unwrap(),
+                }
+            )
+        )
+    )
+);
+
 named!(pub parse_operand <CompleteStr, Token>,
     ws!(
         do_parse!(
@@ -52,7 +67,7 @@ mod tests {
         let result = parse_operand(CompleteStr("0"));
         assert_eq!(result.is_ok(), false);
         // TODO add label max id check
-        let result = parse_operand(CompleteStr("%arg1"));
-        assert_eq!(result.is_ok(), false);
+        let result = parse_operand_str(CompleteStr("%arg1"));
+        assert_eq!(result.is_ok(), true);
     }
 }

@@ -42,6 +42,10 @@ pub enum CRTOpCode {
     SOFTMAX,
     MAXPOOL,
     GEMM,
+    FLATTEN,
+    REDUCEM,
+    CONVADD,
+    CONV,
 
     // ILLEGAL op always id at last index
     ILLEGAL, // rest
@@ -167,6 +171,18 @@ impl From<u8> for CRTOpCode {
             25 => {
                 return CRTOpCode::GEMM;
             }
+            26 => {
+                return CRTOpCode::FLATTEN;
+            }
+            27 => {
+                return CRTOpCode::REDUCEM;
+            }
+            28 => {
+                return CRTOpCode::CONVADD;
+            }
+            29 => {
+                return CRTOpCode::CONV;
+            }
             _ => {
                 return CRTOpCode::ILLEGAL;
             }
@@ -258,10 +274,14 @@ impl From<CompleteStr<'_>> for CRTOpCode {
             CompleteStr("relu") => CRTOpCode::RELU,
             CompleteStr("softmax") => CRTOpCode::SOFTMAX,
             CompleteStr("maxpool") => CRTOpCode::MAXPOOL,
+            CompleteStr("flatten") => CRTOpCode::FLATTEN,
+            CompleteStr("reducemean") => CRTOpCode::REDUCEM,
+            CompleteStr("convadd") => CRTOpCode::CONVADD,
+            CompleteStr("conv") => CRTOpCode::CONV,
             CompleteStr("gemm") => CRTOpCode::GEMM,
             // crt.devat, NOT USE IN BYTECODE but in to_bytes of modules
             _ => {
-                panic!("unknown inst");
+                panic!("unknown inst = {:#?}", s);
             }
         }
     }
@@ -314,6 +334,10 @@ impl From<CRTOpCode> for MockOpCode {
             CRTOpCode::RELU => MockOpCode::ReluOp,
             CRTOpCode::SOFTMAX => MockOpCode::SoftmaxOp,
             CRTOpCode::MAXPOOL => MockOpCode::MaxpoolOp,
+            CRTOpCode::FLATTEN => MockOpCode::FlattenOp,
+            CRTOpCode::REDUCEM => MockOpCode::ReduceMeanOp,
+            CRTOpCode::CONVADD => MockOpCode::ConvAddOp,
+            CRTOpCode::CONV => MockOpCode::ConvOp,
             CRTOpCode::GEMM => MockOpCode::GemmOp,
             CRTOpCode::RESHAPE => MockOpCode::ReshapeOp,
             CRTOpCode::TRANSPOSE => MockOpCode::TransposeOp,
@@ -342,6 +366,10 @@ impl From<MockOpCode> for CRTOpCode {
             MockOpCode::ReluOp => CRTOpCode::RELU,
             MockOpCode::SoftmaxOp => CRTOpCode::SOFTMAX,
             MockOpCode::MaxpoolOp => CRTOpCode::MAXPOOL,
+            MockOpCode::FlattenOp => CRTOpCode::FLATTEN,
+            MockOpCode::ReduceMeanOp => CRTOpCode::REDUCEM,
+            MockOpCode::ConvAddOp => CRTOpCode::CONVADD,
+            MockOpCode::ConvOp => CRTOpCode::CONV,
             MockOpCode::GemmOp => CRTOpCode::GEMM,
             MockOpCode::ReshapeOp => CRTOpCode::RESHAPE,
             MockOpCode::AddOp => CRTOpCode::ADDF32,

@@ -208,7 +208,8 @@ named!(
         tag!(": ") >>
         // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
         // status nor this static type info
-        _dtype: parse_function_type >>
+        // TODO rename parse_function_type_tuple
+        _func_type: parse_function_type_tuple >>
         (
             AsmInstruction {
                 opcode: _opcode,
@@ -218,13 +219,13 @@ named!(
                 #[cfg(feature = "phantom")]
                 operand4: None,
                 #[cfg(feature = "phantom")]
-                operand2_type: None,
+                operand2_type: Some(_func_type.0[0].clone()),
                 #[cfg(feature = "phantom")]
-                operand3_type: None,
+                operand3_type: Some(_func_type.0[1].clone()),
                 #[cfg(feature = "phantom")]
                 operand4_type: None,
                 #[cfg(feature = "phantom")]
-                result_type: None,
+                result_type: Some(_func_type.1),
             }
         )
     )
@@ -275,48 +276,24 @@ named!(
         opcode: parse_phantom_opcode >>
         in_operand: parse_operand >>
         tag!(": ") >>
-        _dtype: parse_function_type >>
+        // TODO _dtype: parse_function_type >>
+        _func_type: parse_function_type_tuple >>
         (
-            match opcode {
-                Token::BytecodeOpCode { code: CRTOpCode::MAXPOOL } => {
-                    // if unary that change shapes, save shape in last place
-                    AsmInstruction {
-                        opcode: opcode,
-                        operand1: Some(out_operand),
-                        operand2: Some(in_operand),
-                        operand3: Some(_dtype),
-                        #[cfg(feature = "phantom")]
-                        operand4: None,
-                        #[cfg(feature = "phantom")]
-                        operand2_type: None,
-                        #[cfg(feature = "phantom")]
-                        operand3_type: None,
-                        #[cfg(feature = "phantom")]
-                        operand4_type: None,
-                        #[cfg(feature = "phantom")]
-                        result_type: None,
-                    }
-
-                },
-                _ => {
-                    // if same-operand-result-shape, not need to store shaped-type
-                    AsmInstruction {
-                        opcode: opcode,
-                        operand1: Some(out_operand),
-                        operand2: Some(in_operand),
-                        operand3: None,
-                        #[cfg(feature = "phantom")]
-                        operand4: None,
-                        #[cfg(feature = "phantom")]
-                        operand2_type: None,
-                        #[cfg(feature = "phantom")]
-                        operand3_type: None,
-                        #[cfg(feature = "phantom")]
-                        operand4_type: None,
-                        #[cfg(feature = "phantom")]
-                        result_type: None,
-                    }
-                }
+            AsmInstruction {
+                opcode: opcode,
+                operand1: Some(out_operand),
+                operand2: Some(in_operand),
+                operand3: None,
+                #[cfg(feature = "phantom")]
+                operand4: None,
+                #[cfg(feature = "phantom")]
+                operand2_type: Some(_func_type.0[0].clone()),
+                #[cfg(feature = "phantom")]
+                operand3_type: None,
+                #[cfg(feature = "phantom")]
+                operand4_type: None,
+                #[cfg(feature = "phantom")]
+                result_type: Some(_func_type.1),
             }
         )
     )
@@ -559,8 +536,7 @@ mod tests {
         ));
         assert_eq!(result.is_ok(), true);
         let (_remain, _bytes_result) = result.unwrap();
-        println!("{:?}", _remain);
-        assert_eq!(_bytes_result.to_bytes(), vec![16, 3, 2])
+        assert_eq!(_remain.is_empty(), true);
     }
 
     #[cfg(feature = "phantom")]
@@ -571,7 +547,7 @@ mod tests {
         ));
         assert_eq!(result.is_ok(), true);
         let (_remain, _bytes_result) = result.unwrap();
-        println!("{:?}", _remain);
+        assert_eq!(_remain.is_empty(), true);
     }
 
     #[test]
@@ -647,8 +623,7 @@ mod tests {
         let result = parse_phantom_instruction(CompleteStr("%86 = crt.matmul %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>"));
         println!("{:?}", result);
         assert_eq!(result.is_ok(), true);
-        let _bytes_result = result.unwrap().1.to_bytes();
-        assert_eq!(_bytes_result, vec![13, 86, 82, 85]);
+        assert_eq!(result.unwrap().0.is_empty(), true);
     }
 
     #[cfg(feature = "phantom")]
@@ -735,7 +710,7 @@ mod tests {
 
     #[test]
     fn test_parse_transpose_inst() {
-        let result = parse_instruction(CompleteStr("%0 = crt.transpose! %1, [2 3]\n"));
+        let result = parse_instruction(CompleteStr("%0 = crt.transpose! %arg1, [2 3]\n"));
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap().0.is_empty(), true);
     }

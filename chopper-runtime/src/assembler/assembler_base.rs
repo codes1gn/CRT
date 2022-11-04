@@ -15,6 +15,9 @@ pub enum Token {
     Variable {
         symbol: u8,
     },
+    ArgName {
+        arg_str: String,
+    },
     // TODO maybe support Variable { symbol: String },
     I32Literal {
         value: i32,
@@ -99,6 +102,17 @@ impl AsmInstruction {
             Some(t) => match t {
                 Token::Variable { symbol } => {
                     results.push(*symbol);
+                }
+                Token::ArgName { arg_str } => {
+                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
                 }
                 Token::I32Literal { value } => {
                     // convert i32 into 4 of bytes in little endian order
@@ -191,6 +205,17 @@ impl AsmInstruction {
                 Token::Variable { symbol } => {
                     results.push(*symbol);
                 }
+                Token::ArgName { arg_str } => {
+                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
+                }
                 Token::I32Literal { value } => {
                     let values = value.to_le_bytes();
                     for _value in values {
@@ -282,6 +307,17 @@ impl AsmInstruction {
             Some(t) => match t {
                 Token::Variable { symbol } => {
                     results.push(*symbol);
+                }
+                Token::ArgName { arg_str } => {
+                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
                 }
                 Token::I32Literal { value } => {
                     let values = value.to_le_bytes();
@@ -399,6 +435,17 @@ impl AsmInstruction {
             Some(t) => match t {
                 Token::Variable { symbol } => {
                     results.push(*symbol);
+                }
+                Token::ArgName { arg_str } => {
+                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
+                    let shape_len = shape_bytes.len() as u16;
+                    let shape_len_bytes = shape_len.to_le_bytes();
+                    for _shape_len in shape_len_bytes {
+                        results.push(_shape_len);
+                    }
+                    for _shape in shape_bytes {
+                        results.push(_shape)
+                    }
                 }
                 Token::I32Literal { value } => {
                     let values = value.to_le_bytes();

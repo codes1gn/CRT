@@ -696,6 +696,7 @@ impl VM {
         }
     }
 
+    // TODO use Result<RTStatus, RTError>
     #[cfg(feature = "phantom")]
     fn step_impl(&mut self, exec_mode: ExecMode) -> Result<u8, RuntimeStatusError> {
         let _inst = self.fetch_instruction().unwrap();
@@ -763,9 +764,25 @@ impl VM {
                 info!("::vm::fill data-subscriber #{}", operand_out);
                 Ok(0)
             }
-            CRTOpCode::RELU | CRTOpCode::SOFTMAX | CRTOpCode::EXPF32 => {
+
+            // UNARY OP
+            CRTOpCode::FLATTEN
+            | CRTOpCode::REDUCEM
+            | CRTOpCode::MAXPOOL
+            | CRTOpCode::RELU
+            | CRTOpCode::SOFTMAX
+            | CRTOpCode::EXPF32 => {
                 let operand_out = self.decode_u8() as usize;
                 let operand_in = self.decode_u8() as usize;
+
+                let out_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let out_shape = self.decode_usize_vec(_buffer_size);
+
+                let in_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let in_shape = self.decode_usize_vec(_buffer_size);
+
                 let in_tensor = self.get_tensor(&operand_in);
                 let opcode = _inst;
                 match exec_mode {
@@ -803,6 +820,8 @@ impl VM {
                     _ => panic!("unknown exec-mode"),
                 }
             }
+
+            // BINARY OP
             CRTOpCode::ADDF32
             | CRTOpCode::ADDI32
             | CRTOpCode::SUBF32
@@ -811,14 +830,29 @@ impl VM {
             | CRTOpCode::MULI32
             | CRTOpCode::DIVF32
             | CRTOpCode::FLOORDIVI32
+            | CRTOpCode::CONV
             | CRTOpCode::RESHAPE
             | CRTOpCode::TRANSPOSE
             | CRTOpCode::MATMULF32 => {
                 let operand_out = self.decode_u8() as usize;
                 let operand_lhs = self.decode_u8() as usize;
                 let operand_rhs = self.decode_u8() as usize;
+
+                let out_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let out_shape = self.decode_usize_vec(_buffer_size);
+
+                let lhs_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let lhs_shape = self.decode_usize_vec(_buffer_size);
+
+                let rhs_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let rhs_shape = self.decode_usize_vec(_buffer_size);
+
                 let lhs_tensor = self.get_tensor(&operand_lhs);
                 let rhs_tensor = self.get_tensor(&operand_rhs);
+
                 let opcode = _inst;
                 match exec_mode {
                     ExecMode::LAZY => {
@@ -842,10 +876,8 @@ impl VM {
                             operand_out, opcode
                         );
 
-                        let out_placeholder = self.get_shaped_placeholder_at_pos_or(
-                            operand_out,
-                            self.get_tensor_shape(operand_lhs).to_vec(),
-                        );
+                        let out_placeholder =
+                            self.get_shaped_placeholder_at_pos_or(operand_out, out_shape);
 
                         info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
                         let _subscribers = self.session.launch_non_blocking_binary_compute(
@@ -870,7 +902,9 @@ impl VM {
                     _ => panic!("unknown exec-mode"),
                 }
             }
-            CRTOpCode::GEMM => {
+
+            // TENARY OP
+            CRTOpCode::CONVADD | CRTOpCode::GEMM => {
                 let operand_out = self.decode_u8() as usize;
                 let operand_first = self.decode_u8() as usize;
                 let operand_second = self.decode_u8() as usize;
@@ -939,93 +973,6 @@ impl VM {
                             first_subscriber,
                             second_subscriber,
                             third_subscriber,
-                            operand_out,
-                            self.dev_at.clone(),
-                        );
-
-                        self.set_subscriber_at_pos(operand_out, _subscribers);
-                        info!(
-                            "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
-                            operand_out, opcode
-                        );
-
-                        Ok(0)
-                    }
-                    _ => panic!("unknown exec-mode"),
-                }
-            }
-            // ANCHOR use binaryop as reshape and transpose logics
-            // #[cfg(not(feature = "phantom"))]
-            // CRTOpCode::TRANSPOSE | CRTOpCode::RESHAPE => {
-            //     let operand_out = self.decode_u8() as usize;
-            //     let operand_in = self.decode_u8() as usize;
-            //     let shape_size = self.decode_vec_len() as usize;
-            //     println!("yeah");
-            //     let raw_shape_vec = self.decode_usize_vec(shape_size);
-            //     println!("nope");
-            //     let in_tensor = self.get_tensor(&operand_in);
-            //     let opcode = _inst;
-            //     match exec_mode {
-            //         ExecMode::LAZY => {
-            //             info!(
-            //                 "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
-            //                 operand_in, opcode
-            //             );
-            //             let _subscriber = self.get_subscriber_at_pos(operand_in);
-            //
-            //             info!("::vm::store-ret-value with index #{:?}", operand_out);
-            //             let out_placeholder = self
-            //                 .get_shaped_placeholder_at_pos_or(operand_out, raw_shape_vec.clone());
-            //
-            //             let _subscribers = self.session.launch_dma_operation(
-            //                 opcode,
-            //                 in_tensor,
-            //                 out_placeholder,
-            //                 raw_shape_vec,
-            //                 _subscriber,
-            //                 operand_out,
-            //                 self.dev_at.clone(),
-            //             );
-            //
-            //             self.set_subscriber_at_pos(operand_out, _subscribers);
-            //             info!(
-            //                 "::vm::store subscriber for tensor #{} OP^{:?} -- DATADEP",
-            //                 operand_out, opcode
-            //             );
-            //
-            //             Ok(0)
-            //         }
-            //         _ => panic!("unknown exec-mode"),
-            //     }
-            // }
-            CRTOpCode::MAXPOOL => {
-                let operand_out = self.decode_u8() as usize;
-                let operand_in = self.decode_u8() as usize;
-                // TODO add new condition switch, phantom over mock
-                // TODO pack decode functions with Token types, such as decode_Function_Type
-                // decode_ranked_operand
-                let dtype: ElementType = self.decode_u8().into();
-                let _buffer_size = self.decode_vec_len() as usize;
-                let result_shape = self.decode_usize_vec(_buffer_size);
-                let in_tensor = self.get_tensor(&operand_in);
-                let opcode = _inst;
-                match exec_mode {
-                    ExecMode::LAZY => {
-                        info!(
-                            "::vm::poll subscriber for tensor #{} OP^{:?} -- DATADEP",
-                            operand_in, opcode
-                        );
-                        let in_subscriber = self.get_subscriber_at_pos(operand_in);
-
-                        let out_placeholder =
-                            self.get_shaped_placeholder_at_pos_or(operand_out, result_shape);
-
-                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
-                        let _subscribers = self.session.launch_non_blocking_unary_compute(
-                            opcode,
-                            in_tensor,
-                            out_placeholder,
-                            in_subscriber,
                             operand_out,
                             self.dev_at.clone(),
                         );

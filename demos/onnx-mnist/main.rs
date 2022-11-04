@@ -29,6 +29,7 @@ fn mnist() {
     // avoid shared use of reshape result
     let bytecode = r#"
     %100 = crt.constant : () -> tensor<1x1x28x28xf32>
+    return %100 : tensor<1x1x28x28xf32>
     %0 = crt.maxpool %100 : (tensor<1x1x28x28xf32>) -> tensor<1x1x14x14xf32>
     %1 = crt.constant : () -> tensor<2xi64>
     %2 = crt.reshape %0, %1 : (tensor<1x1x14x14xf32>, tensor<2xi64>) -> tensor<1x196xf32>
