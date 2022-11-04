@@ -290,7 +290,7 @@ impl VM {
                 // panic!("HALT with ILLEGAL-INST {:?}", RuntimeStatusError::RT_ERROR);
                 Err(RuntimeStatusError::RT_ERROR)
             }
-            #[cfg(not(feature = "mock"))]
+            #[cfg(feature = "mock")]
             CRTOpCode::RETV => {
                 info!("::vm::return from module");
                 let operand_ret = self.decode_u8() as usize;
@@ -311,51 +311,6 @@ impl VM {
                 info!("::vm::ret-value retain and return");
                 Ok(2)
             }
-            // TODO fix this: USE ALL RETAIN strategy for mock
-            #[cfg(feature = "mock")]
-            CRTOpCode::RETV => {
-                // clear subscriber
-                // currently solution, wait for this retv subscriber then returns
-                let operand_ret = self.decode_u8() as usize;
-                // clear subscriber
-                // currently solution, wait for this retv subscriber then returns
-                //
-                // let _subscriber = self
-                //     .subscribers
-                //     .get_vec_mut(&operand_ret)
-                //     .expect(&format!("failed to fetch subscriber {}", operand_ret).to_string())
-                //     .remove(0 as usize);
-                // _subscriber
-                //     .blocking_recv()
-                //     .expect("return value computing not ready");
-                let _subscriber = self
-                    .subscribers
-                    .get_vec_mut(&101)
-                    .expect(&format!("failed to fetch subscriber {}", 101).to_string())
-                    .remove(0 as usize);
-                _subscriber
-                    .blocking_recv()
-                    .expect("return value computing not ready");
-                let _subscriber = self
-                    .subscribers
-                    .get_vec_mut(&102)
-                    .expect(&format!("failed to fetch subscriber {}", 102).to_string())
-                    .remove(0 as usize);
-                _subscriber
-                    .blocking_recv()
-                    .expect("return value computing not ready");
-                let _subscriber = self
-                    .subscribers
-                    .get_vec_mut(&102)
-                    .expect(&format!("failed to fetch subscriber {}", 103).to_string())
-                    .remove(0 as usize);
-                _subscriber
-                    .blocking_recv()
-                    .expect("return value computing not ready");
-                info!("::vm::ALL-DONE");
-                Ok(2)
-            }
-            // TODO rename to loadu16
             CRTOpCode::LOAD => {
                 let register_id = self.decode_u8() as usize;
                 let operand = self.decode_u16() as u16;
@@ -462,7 +417,7 @@ impl VM {
                             self.get_tensor_shape(operand_in).to_vec(),
                         );
 
-                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        info!("::vm::call-session-launch-unary-compute lazy");
                         let _subscribers = self.session.launch_non_blocking_unary_compute(
                             opcode,
                             in_tensor,
@@ -827,7 +782,7 @@ impl VM {
                             self.get_tensor_shape(operand_in).to_vec(),
                         );
 
-                        info!("::vm::call-session-launch-unary-compute eager+borrowed+blocking");
+                        info!("::vm::call-session-launch-unary-compute lazy");
                         let _subscribers = self.session.launch_non_blocking_unary_compute(
                             opcode,
                             in_tensor,

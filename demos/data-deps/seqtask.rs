@@ -23,14 +23,14 @@ fn sequence_test() {
 
     // bytecode that combines above operations in one string
     let bytecode = "
-        %0 = crt.helper.svalue.tensor! ones<[2 2]> : f32\n\
-        %1 = crt.exp.f32! %0 : f32\n\
-        %2 = crt.exp.f32! %1 : f32\n\
-        %3 = crt.exp.f32! %2 : f32\n\
-        %1 = crt.exp.f32! %0 : f32\n\
-        %2 = crt.exp.f32! %1 : f32\n\
-        %3 = crt.exp.f32! %2 : f32\n\
-        return %3\n
+        %0 = crt.helper.svalue.tensor! ones<[2 2]> : f32
+        %1 = crt.exp.f32! %0 : f32
+        %2 = crt.exp.f32! %1 : f32
+        %2 = crt.exp.f32! %1 : f32
+        %3 = crt.exp.f32! %2 : f32
+        %3 = crt.exp.f32! %2 : f32
+        %4 = crt.exp.f32! %3 : f32
+        return %3
     ";
     // ipt.run_bytecode_eagerly(bytecode);
     ipt.run_bytecode_lazily(bytecode);

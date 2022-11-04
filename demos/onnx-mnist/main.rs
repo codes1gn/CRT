@@ -53,7 +53,5 @@ fn mnist() {
 fn main() {
     std::env::set_var("RUST_LOG", "info");
     tracing_subscriber::fmt::try_init().unwrap();
-
-    // #[cfg(feature = "phantom")]
     mnist();
 }

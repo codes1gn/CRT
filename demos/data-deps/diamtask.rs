@@ -19,9 +19,11 @@ fn sequence_test() {
     %1 = crt.exp.f32! %0 : f32\n\
     %2 = crt.exp.f32! %1 : f32\n\
     %3 = crt.exp.f32! %1 : f32\n\
-    %4 = crt.add.f32! %2, %3 : f32\n";
-    // ipt.run_bytecode_eagerly(bytecode);
+    %4 = crt.add.f32! %2, %3 : f32\n
+    return %4";
     ipt.run_bytecode_lazily(bytecode);
+
+    #[cfg(feature = "blas")]
     assert_float_eq!(
         *ipt.vm.get_raw_vec_f32(4),
         vec![1.0; 4],
