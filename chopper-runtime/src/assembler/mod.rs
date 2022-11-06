@@ -15,14 +15,21 @@ pub mod parse_type;
 use assembler_base::*;
 use parse_instruction::*;
 use parse_module::*;
+use parse_operand::*;
+use parse_type::*;
+
+use crate::instruction::CRTOpCode;
 
 // interface for bytecode parsing
 #[cfg(feature = "phantom")]
 named!(pub parse_bytecode<CompleteStr, Program>,
     do_parse!(
+        consume_module_header >>
         program: alt!(
             parse_phantom_program
-        ) >> (
+        ) >>
+        consume_bracket_tail >>
+        (
             program
         )
     )
@@ -33,7 +40,8 @@ named!(pub parse_bytecode<CompleteStr, Program>,
     do_parse!(
         program: alt!(
             parse_raw_program
-        ) >> (
+        ) >>
+        (
             program
         )
     )
@@ -50,6 +58,7 @@ named!(pub parse_raw_program<CompleteStr, Program>,
             )
         ) >> (
             Program {
+                predefines: vec![],
                 mods: modules
             }
         )
@@ -57,15 +66,96 @@ named!(pub parse_raw_program<CompleteStr, Program>,
 );
 
 #[cfg(feature = "phantom")]
+named!(consume_module_header<CompleteStr, bool>,
+    do_parse!(
+        multispace0 >>
+        tag!("module attributes ") >>
+        alt!(
+            take_until!("\n") | take_until!("\r\n")
+        ) >>
+        multispace0 >>
+        (
+            true
+        )
+    )
+);
+
+#[cfg(feature = "phantom")]
+named!(consume_funcfunc_header<CompleteStr, AsmInstruction>,
+    do_parse!(
+        multispace0 >>
+        tag!("func.func @") >>
+        take_until!("(") >>
+        tag!("(") >>
+        arg: parse_argument >>
+        tag!(": ") >>
+        arg_type: parse_ranked_tensor_type >>
+        opt!(tag!(", ")) >>
+        tag!(")") >>
+        alt!(
+            take_until!("\n") | take_until!("\r\n")
+        ) >>
+        multispace0 >>
+        (
+            match arg_type {
+                Token::TensorType { dtype, shape } => {
+                    AsmInstruction {
+                        opcode: Token::BytecodeOpCode {
+                            code: CRTOpCode::SVALUETENSOR,
+                        },
+                        operand1: Some(arg),
+                        operand2: Some(Token::UninitTensor {
+                            // hardcode for now
+                            data_generator: 0f32,
+                            shape: shape,
+                        }),
+                        operand3: None,
+                        #[cfg(feature = "phantom")]
+                        operand4: None,
+                        #[cfg(feature = "phantom")]
+                        operand2_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand3_type: None,
+                        #[cfg(feature = "phantom")]
+                        operand4_type: None,
+                        #[cfg(feature = "phantom")]
+                        result_type: None,
+                    }
+                },
+                _ => panic!("expect token::tensor-type"),
+            }
+        )
+    )
+);
+
+#[cfg(feature = "phantom")]
+named!(consume_bracket_tail<CompleteStr, bool>,
+    do_parse!(
+        multispace0 >>
+        opt!(parse_comment) >>
+        multispace0 >>
+        tag!("}") >>
+        multispace0 >>
+        (
+            true
+        )
+    )
+);
+
+#[cfg(feature = "phantom")]
 named!(pub parse_phantom_program<CompleteStr, Program>,
     do_parse!(
+        arg_define: consume_funcfunc_header >>
         modules: many1!(
             alt!(
                 parse_phantom_module
             )
-        ) >> (
+        ) >>
+        consume_bracket_tail >>
+        (
             Program {
-                mods: modules
+                predefines: vec![arg_define],
+                mods: modules,
             }
         )
     )

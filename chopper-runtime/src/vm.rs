@@ -212,22 +212,6 @@ impl VM {
         self.tensor_pool.insert(index, tensor_view);
     }
 
-    pub fn get_tensor(&mut self, index: &usize) -> Arc<RwLock<ActTensorTypes>> {
-        Arc::clone(&self.tensor_pool[index])
-    }
-
-    pub fn dump_tensor_f32(&self, index: usize) {
-        if self.tensor_pool.contains_key(&index) == false {
-            panic!("not-found tensor at slot #{:?}", index);
-        }
-        match *self.tensor_pool[&index].read().unwrap() {
-            ActTensorTypes::F32Tensor { ref data } => {
-                data.clone().dump(index);
-            }
-            _ => panic!("not support int types for #{:?}", index),
-        }
-    }
-
     pub fn get_tensor_shape(&self, index: usize) -> Vec<usize> {
         match *self.tensor_pool[&index].read().unwrap() {
             ActTensorTypes::F32Tensor { ref data } => data.shape.clone(),
@@ -246,7 +230,41 @@ impl VM {
         }
     }
 
+    pub fn get_tensor(&mut self, index: &usize) -> Arc<RwLock<ActTensorTypes>> {
+        Arc::clone(&self.tensor_pool[index])
+    }
+
+    pub fn get_tensor_with_shape_check(
+        &mut self,
+        index: usize,
+        shape: Vec<usize>,
+    ) -> Arc<RwLock<ActTensorTypes>> {
+        let ref_shape = self.get_tensor_shape(index);
+        info!(
+            "checking tensor at pos = {:?}, expected shape = {:?}",
+            index, shape
+        );
+        assert_eq!(ref_shape, shape);
+        self.get_tensor(&index)
+    }
+
+    pub fn dump_tensor_f32(&self, index: usize) {
+        if self.tensor_pool.contains_key(&index) == false {
+            panic!("not-found tensor at slot #{:?}", index);
+        }
+        match *self.tensor_pool[&index].read().unwrap() {
+            ActTensorTypes::F32Tensor { ref data } => {
+                data.clone().dump(index);
+            }
+            _ => panic!("not support int types for #{:?}", index),
+        }
+    }
+
     pub fn push_shaped_tensor_at_pos(&mut self, index: usize, data: Vec<f32>, shape: Vec<usize>) {
+        info!(
+            "defining tensor at pos = {:?}, expected shape = {:?}",
+            index, shape
+        );
         let tensor_view = Arc::new(RwLock::new(ActTensorTypes::F32Tensor {
             data: TensorView::<f32>::new(data, ElementType::F32, shape),
         }));
@@ -775,15 +793,19 @@ impl VM {
                 let operand_out = self.decode_u8() as usize;
                 let operand_in = self.decode_u8() as usize;
 
-                let out_dtype: ElementType = self.decode_u8().into();
-                let _buffer_size = self.decode_vec_len() as usize;
-                let out_shape = self.decode_usize_vec(_buffer_size);
-
                 let in_dtype: ElementType = self.decode_u8().into();
                 let _buffer_size = self.decode_vec_len() as usize;
                 let in_shape = self.decode_usize_vec(_buffer_size);
 
-                let in_tensor = self.get_tensor(&operand_in);
+                let out_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let out_shape = self.decode_usize_vec(_buffer_size);
+                info!(
+                    "op->{:?}  in_shape->{:?} out_shape->{:?}",
+                    _inst, in_shape, out_shape
+                );
+
+                let in_tensor = self.get_tensor_with_shape_check(operand_in, in_shape);
                 let opcode = _inst;
                 match exec_mode {
                     ExecMode::LAZY => {
@@ -794,10 +816,8 @@ impl VM {
                         );
                         let in_subscriber = self.get_subscriber_at_pos(operand_in);
 
-                        let out_placeholder = self.get_shaped_placeholder_at_pos_or(
-                            operand_out,
-                            self.get_tensor_shape(operand_in).to_vec(),
-                        );
+                        let out_placeholder =
+                            self.get_shaped_placeholder_at_pos_or(operand_out, out_shape);
 
                         info!("::vm::call-session-launch-unary-compute lazy");
                         let _subscribers = self.session.launch_non_blocking_unary_compute(
@@ -838,10 +858,6 @@ impl VM {
                 let operand_lhs = self.decode_u8() as usize;
                 let operand_rhs = self.decode_u8() as usize;
 
-                let out_dtype: ElementType = self.decode_u8().into();
-                let _buffer_size = self.decode_vec_len() as usize;
-                let out_shape = self.decode_usize_vec(_buffer_size);
-
                 let lhs_dtype: ElementType = self.decode_u8().into();
                 let _buffer_size = self.decode_vec_len() as usize;
                 let lhs_shape = self.decode_usize_vec(_buffer_size);
@@ -850,8 +866,16 @@ impl VM {
                 let _buffer_size = self.decode_vec_len() as usize;
                 let rhs_shape = self.decode_usize_vec(_buffer_size);
 
-                let lhs_tensor = self.get_tensor(&operand_lhs);
-                let rhs_tensor = self.get_tensor(&operand_rhs);
+                let out_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let out_shape = self.decode_usize_vec(_buffer_size);
+                info!(
+                    "op->{:?}  lhs_shape->{:?} rhs_shape->{:?} out_shape->{:?}",
+                    _inst, lhs_shape, rhs_shape, out_shape
+                );
+
+                let lhs_tensor = self.get_tensor_with_shape_check(operand_lhs, lhs_shape);
+                let rhs_tensor = self.get_tensor_with_shape_check(operand_rhs, rhs_shape);
 
                 let opcode = _inst;
                 match exec_mode {
@@ -910,10 +934,6 @@ impl VM {
                 let operand_second = self.decode_u8() as usize;
                 let operand_third = self.decode_u8() as usize;
 
-                let out_dtype: ElementType = self.decode_u8().into();
-                let _buffer_size = self.decode_vec_len() as usize;
-                let out_shape = self.decode_usize_vec(_buffer_size);
-
                 let first_dtype: ElementType = self.decode_u8().into();
                 let _buffer_size = self.decode_vec_len() as usize;
                 let first_shape = self.decode_usize_vec(_buffer_size);
@@ -926,9 +946,17 @@ impl VM {
                 let _buffer_size = self.decode_vec_len() as usize;
                 let third_shape = self.decode_usize_vec(_buffer_size);
 
-                let first_tensor = self.get_tensor(&operand_first);
-                let second_tensor = self.get_tensor(&operand_second);
-                let third_tensor = self.get_tensor(&operand_third);
+                let out_dtype: ElementType = self.decode_u8().into();
+                let _buffer_size = self.decode_vec_len() as usize;
+                let out_shape = self.decode_usize_vec(_buffer_size);
+                info!(
+                    "op->{:?}  1st_shape->{:?} 2nd_shape->{:?} 3rd_shape->{:?} out_shape->{:?}",
+                    _inst, first_shape, second_shape, third_shape, out_shape
+                );
+
+                let first_tensor = self.get_tensor_with_shape_check(operand_first, first_shape);
+                let second_tensor = self.get_tensor_with_shape_check(operand_second, second_shape);
+                let third_tensor = self.get_tensor_with_shape_check(operand_third, third_shape);
                 let opcode = _inst;
 
                 match exec_mode {

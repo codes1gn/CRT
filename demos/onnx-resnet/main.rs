@@ -7,15 +7,12 @@ use std::{borrow::Cow, fs, iter, ptr, slice, str::FromStr};
 use float_eq::{assert_float_eq, float_eq};
 
 use chopper_runtime::prelude::*;
-// module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128", llvm.target_triple = "x86_64-unknown-linux-gnu"} {
-//   func.func @main_graph(%arg0: tensor<1x3x224x224xf32>) -> tensor<1x1000xf32> attributes {input_names = ["data"], output_names = ["resnetv15_dense0_fwd"]} {
-//
-//   }
-//   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
-// }
+
 fn resnet() {
     // avoid shared use of reshape result
     let bytecode = r#"
+module attributes {llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128", llvm.target_triple = "x86_64-unknown-linux-gnu"} {
+  func.func @main_graph(%arg0: tensor<1x3x224x224xf32>) -> tensor<1x1000xf32> attributes {input_names = ["data"], output_names = ["resnetv15_dense0_fwd"]} {
     %0 = crt.constant : () -> tensor<1000x512xf32>
     %1 = crt.constant : () -> tensor<1000xf32>
     %2 = crt.constant : () -> tensor<64x3x7x7xf32>
@@ -58,7 +55,7 @@ fn resnet() {
     %39 = crt.constant : () -> tensor<512xf32>
     %40 = crt.constant : () -> tensor<512x512x3x3xf32>
     %41 = crt.constant : () -> tensor<512xf32>
-    %42 = crt.convadd %0, %2, %3 : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
+    %42 = crt.convadd %arg0, %2, %3 : (tensor<1x3x224x224xf32>, tensor<64x3x7x7xf32>, tensor<64xf32>) -> tensor<1x64x112x112xf32>
     %43 = crt.relu %42 : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
     %44 = crt.maxpool %43 : (tensor<1x64x112x112xf32>) -> tensor<1x64x56x56xf32>
     %45 = crt.convadd %44, %4, %5 : (tensor<1x64x56x56xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>) -> tensor<1x64x56x56xf32>
@@ -108,6 +105,9 @@ fn resnet() {
     %89 = crt.flatten %88 : (tensor<1x512x1x1xf32>) -> tensor<1x512xf32>
     %90 = crt.gemm %89, %0, %1 : (tensor<1x512xf32>, tensor<1000x512xf32>, tensor<1000xf32>) -> tensor<1x1000xf32>
     return %90 : tensor<1x1000xf32>
+  }
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+}
     "#;
     let mut ipt = Interpreter::new();
     ipt.init(3);

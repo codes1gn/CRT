@@ -1,5 +1,6 @@
 use nom::types::CompleteStr;
 use nom::*;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -104,15 +105,11 @@ impl AsmInstruction {
                     results.push(*symbol);
                 }
                 Token::ArgName { arg_str } => {
-                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
-                    let shape_len = shape_bytes.len() as u16;
-                    let shape_len_bytes = shape_len.to_le_bytes();
-                    for _shape_len in shape_len_bytes {
-                        results.push(_shape_len);
-                    }
-                    for _shape in shape_bytes {
-                        results.push(_shape)
-                    }
+                    // %arg86, take "86" to result in 86 as u8
+                    let my_int = u8::from_str(&arg_str[3..]).unwrap();
+                    let arg_id = u8::MAX - my_int;
+                    // panic!("{:?} {:?}", my_int, arg_id);
+                    results.push(arg_id);
                 }
                 Token::I32Literal { value } => {
                     // convert i32 into 4 of bytes in little endian order
@@ -206,15 +203,10 @@ impl AsmInstruction {
                     results.push(*symbol);
                 }
                 Token::ArgName { arg_str } => {
-                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
-                    let shape_len = shape_bytes.len() as u16;
-                    let shape_len_bytes = shape_len.to_le_bytes();
-                    for _shape_len in shape_len_bytes {
-                        results.push(_shape_len);
-                    }
-                    for _shape in shape_bytes {
-                        results.push(_shape)
-                    }
+                    // %arg86, take "86" to result in 86 as u8
+                    let my_int = u8::from_str(&arg_str[3..]).unwrap();
+                    let arg_id = u8::MAX - my_int;
+                    results.push(arg_id);
                 }
                 Token::I32Literal { value } => {
                     let values = value.to_le_bytes();
@@ -309,15 +301,10 @@ impl AsmInstruction {
                     results.push(*symbol);
                 }
                 Token::ArgName { arg_str } => {
-                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
-                    let shape_len = shape_bytes.len() as u16;
-                    let shape_len_bytes = shape_len.to_le_bytes();
-                    for _shape_len in shape_len_bytes {
-                        results.push(_shape_len);
-                    }
-                    for _shape in shape_bytes {
-                        results.push(_shape)
-                    }
+                    // %arg86, take "86" to result in 86 as u8
+                    let my_int = u8::from_str(&arg_str[3..]).unwrap();
+                    let arg_id = u8::MAX - my_int;
+                    results.push(arg_id);
                 }
                 Token::I32Literal { value } => {
                     let values = value.to_le_bytes();
@@ -437,15 +424,10 @@ impl AsmInstruction {
                     results.push(*symbol);
                 }
                 Token::ArgName { arg_str } => {
-                    let shape_bytes: Vec<u8> = bincode::serialize(&arg_str).unwrap();
-                    let shape_len = shape_bytes.len() as u16;
-                    let shape_len_bytes = shape_len.to_le_bytes();
-                    for _shape_len in shape_len_bytes {
-                        results.push(_shape_len);
-                    }
-                    for _shape in shape_bytes {
-                        results.push(_shape)
-                    }
+                    // %arg86, take "86" to result in 86 as u8
+                    let my_int = u8::from_str(&arg_str[3..]).unwrap();
+                    let arg_id = u8::MAX - my_int;
+                    results.push(arg_id);
                 }
                 Token::I32Literal { value } => {
                     let values = value.to_le_bytes();
@@ -667,6 +649,7 @@ impl AsmInstruction {
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
+    pub(crate) predefines: Vec<AsmInstruction>,
     pub(crate) mods: Vec<Module>,
 }
 
@@ -677,6 +660,9 @@ impl Program {
 
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut mod_bytes = vec![];
+        for _inst in &self.predefines {
+            mod_bytes.append(&mut _inst.to_bytes());
+        }
         for _mod in &self.mods {
             mod_bytes.append(&mut _mod.to_bytes());
         }

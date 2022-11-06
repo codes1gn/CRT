@@ -6,7 +6,7 @@ use super::parse_type::*;
 use crate::assembler::assembler_base::Token;
 
 #[cfg(feature = "phantom")]
-named!(pub parse_operand_str <CompleteStr, Token>,
+named!(pub parse_argument <CompleteStr, Token>,
     ws!(
         do_parse!(
             tag!("%") >>
@@ -67,7 +67,7 @@ mod tests {
         let result = parse_operand(CompleteStr("0"));
         assert_eq!(result.is_ok(), false);
         // TODO add label max id check
-        let result = parse_operand_str(CompleteStr("%arg1"));
+        let result = parse_argument(CompleteStr("%arg1"));
         assert_eq!(result.is_ok(), true);
     }
 }

@@ -71,9 +71,11 @@ named!(parse_halt<CompleteStr, AsmInstruction>,
 // "// some strings for comment\n"
 // TODO impl multiline comment parsing
 // take /*, then take_until */
-named!(parse_comment<CompleteStr, AsmInstruction>,
+named!(pub parse_comment<CompleteStr, AsmInstruction>,
     do_parse!(
-        tag!("//") >>
+        alt!(
+            tag!("//") | tag!("\"onnx")
+        ) >>
         alt!(
             take_until!("\n") | take_until!("\r\n")
         ) >>
@@ -199,12 +201,12 @@ named!(parse_return<CompleteStr, AsmInstruction>,
 named!(
     parse_phantom_binary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
-        _result: parse_operand >>
+        _result: alt!( parse_operand | parse_argument ) >>
         tag!("= ") >>
         _opcode: parse_phantom_opcode >>
-        _operand_lhs: parse_operand >>
+        _operand_lhs: alt!( parse_operand | parse_argument ) >>
         tag!(", ") >>
-        _operand_rhs: parse_operand >>
+        _operand_rhs: alt!( parse_operand | parse_argument ) >>
         tag!(": ") >>
         // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
         // status nor this static type info
@@ -235,12 +237,12 @@ named!(
 named!(
     parse_phantom_tenary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
-        _result: parse_operand >>
+        _result: alt!( parse_operand | parse_argument ) >>
         tag!("= ") >>
         _opcode: parse_phantom_opcode >>
-        _operand_first: parse_operand >>
-        tag!(", ") >> _operand_second: parse_operand >>
-        tag!(", ") >> _operand_third: parse_operand >>
+        _operand_first: alt!( parse_operand | parse_argument ) >>
+        tag!(", ") >> _operand_second: alt!( parse_operand | parse_argument ) >>
+        tag!(", ") >> _operand_third: alt!( parse_operand | parse_argument ) >>
         tag!(": ") >>
         // ANCHOR add functiontype parse here, binary op ignores shape, currently make shape rule by runtime
         // status nor this static type info
@@ -270,11 +272,11 @@ named!(
 named!(
     parse_phantom_unary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
-        out_operand: parse_operand >>
+        out_operand: alt!( parse_operand | parse_argument ) >>
         tag!("=") >>
         _s1: space0 >>
         opcode: parse_phantom_opcode >>
-        in_operand: parse_operand >>
+        in_operand: alt!( parse_operand | parse_argument ) >>
         tag!(": ") >>
         // TODO _dtype: parse_function_type >>
         _func_type: parse_function_type_tuple >>
@@ -303,7 +305,7 @@ named!(
 named!(
     parse_phantom_zenary_instruction<CompleteStr, AsmInstruction>,
     do_parse!(
-        out_operand: parse_operand >>
+        out_operand: alt!( parse_operand | parse_argument ) >>
         tag!("=") >>
         _s1: space0 >>
         opcode: parse_phantom_opcode >>
@@ -620,10 +622,11 @@ mod tests {
     #[test]
     fn test_instruction_assignment_matmul_phantom() {
         // %86 = crt.add %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>
-        let result = parse_phantom_instruction(CompleteStr("%86 = crt.matmul %82, %85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>"));
-        println!("{:?}", result);
+        let result = parse_phantom_instruction(CompleteStr("%arg86 = crt.matmul %82, %arg85 : (tensor<1x512x7x7xf32>, tensor<1x512x7x7xf32>) -> tensor<1x512x7x7xf32>"));
         assert_eq!(result.is_ok(), true);
-        assert_eq!(result.unwrap().0.is_empty(), true);
+        let (_remain, _inst) = result.unwrap();
+        assert_eq!(_remain.is_empty(), true);
+        _inst.to_bytes();
     }
 
     #[cfg(feature = "phantom")]
@@ -710,7 +713,7 @@ mod tests {
 
     #[test]
     fn test_parse_transpose_inst() {
-        let result = parse_instruction(CompleteStr("%0 = crt.transpose! %arg1, [2 3]\n"));
+        let result = parse_instruction(CompleteStr("%0 = crt.transpose! %1, [2 3]\n"));
         assert_eq!(result.is_ok(), true);
         assert_eq!(result.unwrap().0.is_empty(), true);
     }

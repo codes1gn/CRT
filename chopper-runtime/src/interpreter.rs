@@ -109,7 +109,7 @@ impl Interpreter {
 
     pub fn run_bytecode_lazily(&mut self, bytecode: &str) -> Result<u8, RuntimeStatusError> {
         let parsed_program = parse_bytecode(CompleteStr(bytecode));
-        assert_eq!(parsed_program.is_ok(), true);
+        // assert_eq!(parsed_program.is_ok(), true);
         let (_remain, result_program) = parsed_program.expect("failed to parse bytecode");
         info!("remain program = {:?}", _remain);
         assert_eq!(_remain.is_empty(), true);
